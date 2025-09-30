@@ -52,6 +52,7 @@ criterion_cycle = torch.nn.L1Loss()
 criterion_identity = torch.nn.L1Loss()
 
 cuda = torch.cuda.is_available()
+print("CUDA available:", cuda)
 
 input_shape = (opt.channels, opt.img_height, opt.img_width)
 
