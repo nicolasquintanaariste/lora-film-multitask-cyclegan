@@ -1,3 +1,5 @@
+import argparse
+
 from torchmetrics.image.fid import FrechetInceptionDistance
 import torch
 import matplotlib.pyplot as plt
@@ -7,10 +9,26 @@ import torchvision.transforms as transforms
 
 import os
 
+# ------------------------------
+# Parse command-line arguments
+# ------------------------------
+parser = argparse.ArgumentParser(description="Compute FID score between two image folders")
+parser.add_argument(
+    "--folder1",
+    type=str,
+    default=r"C:\Users\usuario\OneDrive - TCDUD.onmicrosoft.com\Documents\Nicolas\University\Academic\Year 5\Repositories\MAI\Dissertation\CycleGAN_erik_linder\data\dummy_data\test\A",
+    help="Path to first folder (default is local)"
+)
+parser.add_argument(
+    "--folder2",
+    type=str,
+    default=r"C:\Users\usuario\OneDrive - TCDUD.onmicrosoft.com\Documents\Nicolas\University\Academic\Year 5\Repositories\MAI\Dissertation\CycleGAN_erik_linder\data\dummy_data\train\A",
+    help="Path to second folder (default is local)"
+)
+args = parser.parse_args()
 
-folder_path1 = r"C:\Users\usuario\OneDrive - TCDUD.onmicrosoft.com\Documents\Nicolas\University\Academic\Year 5\Repositories\MAI\Dissertation\CycleGAN_erik_linder\data\dummy_data\test\A"
-folder_path2 = r"C:\Users\usuario\OneDrive - TCDUD.onmicrosoft.com\Documents\Nicolas\University\Academic\Year 5\Repositories\MAI\Dissertation\CycleGAN_erik_linder\data\dummy_data\train\A"
-
+folder_path1 = args.folder1
+folder_path2 = args.folder2
 
 transform = transforms.Compose([
     transforms.Resize((299, 299)),
