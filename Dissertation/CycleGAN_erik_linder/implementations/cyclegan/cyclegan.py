@@ -44,8 +44,15 @@ opt = parser.parse_args()
 print(opt)
 
 # Create sample and checkpoint directories
-os.makedirs("images/%s" % opt.dataset_name, exist_ok=True)
-os.makedirs("saved_models/%s" % opt.dataset_name, exist_ok=True)
+base_folder = r"Dissertation\CycleGAN_erik_linder"
+
+image_folder = os.path.join(base_folder, "images", opt.dataset_name)
+checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", opt.dataset_name)
+model_folder = os.path.join(base_folder, "saved_models", opt.dataset_name)
+
+os.makedirs(image_folder, exist_ok=True)
+os.makedirs(checkpoint_folder, exist_ok=True)
+os.makedirs(model_folder, exist_ok=True)
 
 # Losses
 criterion_GAN = torch.nn.MSELoss()
@@ -126,21 +133,20 @@ transforms_ = [
 
 # Training data loader
 dataloader = DataLoader(
-    ImageDataset("../../data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True),
-    #ImageDataset("C:\PyTorch-GAN\data\monet2photo", transforms_=transforms_, unaligned=True),
+    ImageDataset(r"Dissertation\CycleGAN_erik_linder\data\%s" % opt.dataset_name, transforms_=transforms_, unaligned=True),
+    #ImageDataset("Dissertation\CycleGAN_erik_linder\data\dummy_data", transforms_=transforms_, unaligned=True),
     batch_size=opt.batch_size,
     shuffle=True,
-    #num_workers=0,
     num_workers=opt.n_cpu,
 )
 # Test data loader
 val_dataloader = DataLoader(
-    ImageDataset("../../data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True, mode="test"),
-    #ImageDataset("C:\PyTorch-GAN\data\monet2photo", transforms_=transforms_, unaligned=True, mode="test"),
+    ImageDataset(r"Dissertation\CycleGAN_erik_linder\data\%s" % opt.dataset_name, transforms_=transforms_, unaligned=True, mode="test"),
+    #ImageDataset("Dissertation\CycleGAN_erik_linder\data\dummy_data", transforms_=transforms_, unaligned=True, mode="test"),
     batch_size=5,
     shuffle=True,
-    #num_workers=0,
-    num_workers=1,
+    # num_workers=1,
+    num_workers=opt.n_cpu,
 )
 
 
@@ -160,7 +166,7 @@ def sample_images(batches_done):
     fake_B = make_grid(fake_B, nrow=5, normalize=True)
     # Arange images along y-axis
     image_grid = torch.cat((real_A, fake_B, real_B, fake_A), 1)
-    save_image(image_grid, "images/%s/%s.png" % (opt.dataset_name, batches_done), normalize=False)
+    save_image(image_grid, os.path.join(image_folder, f"{batches_done}.png"), normalize=False)
 
 # ----------
 #  Training
@@ -265,9 +271,9 @@ for epoch in range(opt.epoch, opt.n_epochs):
         sys.stdout.write(
             "\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f, adv: %f, cycle: %f, identity: %f] ETA: %s"
             % (
-                epoch,
+                epoch + 1,
                 opt.n_epochs,
-                i,
+                i + 1,
                 len(dataloader),
                 loss_D.item(),
                 loss_G.item(),
@@ -288,8 +294,28 @@ for epoch in range(opt.epoch, opt.n_epochs):
     lr_scheduler_D_B.step()
 
     if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
+        # Remove previous checkpoints
+        for f in os.listdir(checkpoint_folder):
+            file_path = os.path.join(checkpoint_folder, f)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+    
         # Save model checkpoints
-        torch.save(G_AB.state_dict(), "saved_models/%s/G_AB_%d.pth" % (opt.dataset_name, epoch))
-        torch.save(G_BA.state_dict(), "saved_models/%s/G_BA_%d.pth" % (opt.dataset_name, epoch))
-        torch.save(D_A.state_dict(), "saved_models/%s/D_A_%d.pth" % (opt.dataset_name, epoch))
-        torch.save(D_B.state_dict(), "saved_models/%s/D_B_%d.pth" % (opt.dataset_name, epoch))
+        torch.save(G_AB.state_dict(), os.path.join(checkpoint_folder, f"G_AB_{epoch}.pth"))
+        torch.save(G_BA.state_dict(), os.path.join(checkpoint_folder, f"G_BA_{epoch}.pth"))
+        torch.save(D_A.state_dict(), os.path.join(checkpoint_folder, f"D_A_{epoch}.pth"))
+        torch.save(D_B.state_dict(), os.path.join(checkpoint_folder, f"D_B_{epoch}.pth"))
+        
+        print(f"Models saved → {checkpoint_folder}", flush=True)
+
+# -----------------------------
+# Save final model with timestamp
+# -----------------------------
+end_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+final_folder = os.path.join(model_folder, f"model_{end_time}")
+os.makedirs(final_folder, exist_ok=True)
+
+torch.save(G_AB.state_dict(), os.path.join(final_folder, "G_AB_final.pth"))
+torch.save(G_BA.state_dict(), os.path.join(final_folder, "G_BA_final.pth"))
+torch.save(D_A.state_dict(), os.path.join(final_folder, "D_A_final.pth"))
+torch.save(D_B.state_dict(), os.path.join(final_folder, "D_B_final.pth"))
