@@ -1,0 +1,10 @@
+# Ignore all files in the data folder
+Dissertation/CycleGAN_erik_linder/data/
+
+# Ignore all images in the cyclegan images folder
+Dissertation/CycleGAN_erik_linder/implementations/cyclegan/images/
+
+Dissertation/images/
+Dissertation/saved_models
+
+Machine Learning/
