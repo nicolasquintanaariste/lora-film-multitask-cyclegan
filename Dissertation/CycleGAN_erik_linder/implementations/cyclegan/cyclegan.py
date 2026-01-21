@@ -133,7 +133,7 @@ transforms_ = [
 
 # Training data loader
 dataloader = DataLoader(
-    ImageDataset(r"Dissertation\CycleGAN_erik_linder\data\%s" % opt.dataset_name, transforms_=transforms_, unaligned=True),
+    ImageDataset(r"Dissertation/CycleGAN_erik_linder/data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True),
     #ImageDataset("Dissertation\CycleGAN_erik_linder\data\dummy_data", transforms_=transforms_, unaligned=True),
     batch_size=opt.batch_size,
     shuffle=True,
@@ -141,7 +141,7 @@ dataloader = DataLoader(
 )
 # Test data loader
 val_dataloader = DataLoader(
-    ImageDataset(r"Dissertation\CycleGAN_erik_linder\data\%s" % opt.dataset_name, transforms_=transforms_, unaligned=True, mode="test"),
+    ImageDataset(r"Dissertation/CycleGAN_erik_linder/data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True, mode="test"),
     #ImageDataset("Dissertation\CycleGAN_erik_linder\data\dummy_data", transforms_=transforms_, unaligned=True, mode="test"),
     batch_size=5,
     shuffle=True,
