@@ -134,6 +134,7 @@ transforms_ = [
 # Training data loader
 data_path = r"Dissertation/CycleGAN_erik_linder/data/%s" % opt.dataset_name
 print(f"Data loaded from: {data_path}")
+print(os.listdir(data_path))
 dataloader = DataLoader(
     ImageDataset(r"Dissertation/CycleGAN_erik_linder/data/%s" % opt.dataset_name, transforms_=transforms_, unaligned=True),
     #ImageDataset("Dissertation\CycleGAN_erik_linder\data\dummy_data", transforms_=transforms_, unaligned=True),
