@@ -18,6 +18,4 @@ data/
 
 /images/day2night/
 
-/implementations/cyclegan/train_model.ipynb
-
 train_model.ipynb
