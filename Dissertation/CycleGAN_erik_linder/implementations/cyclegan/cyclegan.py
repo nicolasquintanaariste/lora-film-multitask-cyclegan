@@ -44,7 +44,7 @@ opt = parser.parse_args()
 print(opt)
 
 # Create sample and checkpoint directories
-base_folder = r"Dissertation\CycleGAN_erik_linder"
+base_folder = r"Dissertation/CycleGAN_erik_linder"
 
 image_folder = os.path.join(base_folder, "images", opt.dataset_name)
 checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", opt.dataset_name)
