@@ -5,19 +5,19 @@ Dissertation/CycleGAN_erik_linder/data/
 Dissertation/CycleGAN_erik_linder/implementations/cyclegan/images/
 
 Dissertation/images/
-Dissertation/saved_models
+Dissertation/saved_models/
 
 Machine Learning/
 
 data/
 
-Dissertation/CycleGAN_erik_linder/saved_checkpoints
-Dissertation/CycleGAN_erik_linder/saved_models
+/saved_checkpoints/
+/saved_models/
 
-Dissertation/CycleGAN_erik_linder/implementations/cyclegan/__pycache__/
+/__pycache__/
 
-Dissertation/CycleGAN_erik_linder/images/day2night/
+/images/day2night/
 
-Dissertation\CycleGAN_erik_linder
+/implementations/cyclegan/train_model.ipynb
 
-
+train_model.ipynb

@@ -68,8 +68,8 @@ input_shape = (opt.channels, opt.img_height, opt.img_width)
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-G_AB = GeneratorResNet(input_shape, opt.n_residual_blocks)
-G_BA = GeneratorResNet(input_shape, opt.n_residual_blocks)
+G_AB = GeneratorUNet(input_shape)
+G_BA = GeneratorUNet(input_shape)
 D_A = Discriminator(input_shape)
 D_B = Discriminator(input_shape)
 
