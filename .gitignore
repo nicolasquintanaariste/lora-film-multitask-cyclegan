@@ -10,3 +10,8 @@ Dissertation/saved_models
 Machine Learning/
 
 data/
+
+Dissertation/CycleGAN_erik_linder/saved_checkpoints
+Dissertation/CycleGAN_erik_linder/saved_models
+
+Dissertation/CycleGAN_erik_linder/implementations/cyclegan/__pycache__/
