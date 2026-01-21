@@ -113,6 +113,91 @@ class GeneratorResNet(nn.Module):
         x = self.tanh(x)
         return x
 
+##############################
+#        UNET GENERATOR
+##############################
+
+class UNetDown(nn.Module):
+    def __init__(self, in_channels, out_channels, normalize=True):
+        super().__init__()
+        layers = [
+            nn.Conv2d(in_channels, out_channels, 4, stride=2, padding=1)
+        ]
+        if normalize:
+            layers.append(nn.InstanceNorm2d(out_channels))
+        layers.append(nn.LeakyReLU(0.2, inplace=True))
+        self.model = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.model(x)
+
+
+class UNetUp(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.model = nn.Sequential(
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(in_channels, out_channels, 3, stride=1, padding=1),
+            nn.InstanceNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x, skip):
+        x = self.model(x)
+        # Concatenate skip connection
+        x = torch.cat((x, skip), dim=1)
+        return x
+
+
+class GeneratorUNet(nn.Module):
+    def __init__(self, input_shape):
+        super().__init__()
+        channels = input_shape[0]
+
+        # -------- Encoder --------
+        self.down1 = UNetDown(channels, 64, normalize=False)   # 256 → 128
+        self.down2 = UNetDown(64, 128)                         # 128 → 64
+        self.down3 = UNetDown(128, 256)                        # 64 → 32
+        self.down4 = UNetDown(256, 512)                        # 32 → 16
+
+        # -------- Bottleneck --------
+        self.bottleneck = nn.Sequential(
+            nn.Conv2d(512, 512, 4, stride=2, padding=1),       # 16 → 8
+            nn.ReLU(inplace=True)
+        )
+
+        # -------- Decoder --------
+        self.up1 = UNetUp(512, 512)     # 8 → 16
+        self.up2 = UNetUp(1024, 256)    # 16 → 32
+        self.up3 = UNetUp(512, 128)     # 32 → 64
+        self.up4 = UNetUp(256, 64)      # 64 → 128
+
+        # -------- Output --------
+        self.final = nn.Sequential(
+            nn.Upsample(scale_factor=2),                      # 128 → 256
+            nn.ReflectionPad2d(3),
+            nn.Conv2d(128, channels, 7),
+            nn.Tanh()
+        )
+
+    def forward(self, x):
+        # Encoder
+        d1 = self.down1(x)
+        d2 = self.down2(d1)
+        d3 = self.down3(d2)
+        d4 = self.down4(d3)
+
+        # Bottleneck
+        bn = self.bottleneck(d4)
+
+        # Decoder + skip connections
+        u1 = self.up1(bn, d4)
+        u2 = self.up2(u1, d3)
+        u3 = self.up3(u2, d2)
+        u4 = self.up4(u3, d1)
+
+        return self.final(u4)
+
 
 ##############################
 #        Discriminator
