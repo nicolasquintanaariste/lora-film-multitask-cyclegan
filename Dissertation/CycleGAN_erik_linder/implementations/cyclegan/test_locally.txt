@@ -1,1 +1,4 @@
 python Dissertation\CycleGAN_erik_linder\implementations\cyclegan\cyclegan.py --dataset_name dummy_data  --n_cpu 0  --batch_size 1  --img_height 128  --img_width 128  --n_epochs 6  --decay_epoch 1 --n_residual_blocks 6  --checkpoint_interval 1
+
+
+python Dissertation\CycleGAN_erik_linder\implementations\cyclegan\cyclegan.py --dataset_name day2night  --n_cpu 0  --batch_size 1  --img_height 128  --img_width 128  --n_epochs 6  --decay_epoch 1 --n_residual_blocks 6  --checkpoint_interval 1

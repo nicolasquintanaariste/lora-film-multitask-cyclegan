@@ -132,8 +132,15 @@ transforms_ = [
 ]
 
 # Training data loader
+dataset_path = os.path.join(
+    "Dissertation",
+    "CycleGAN_erik_linder",
+    "data",
+    opt.dataset_name
+)
+
 dataloader = DataLoader(
-    ImageDataset(r"Dissertation\CycleGAN_erik_linder\data\%s" % opt.dataset_name, transforms_=transforms_, unaligned=True),
+    ImageDataset(dataset_path, transforms_=transforms_, unaligned=True),
     #ImageDataset("Dissertation\CycleGAN_erik_linder\data\dummy_data", transforms_=transforms_, unaligned=True),
     batch_size=opt.batch_size,
     shuffle=True,
@@ -141,7 +148,7 @@ dataloader = DataLoader(
 )
 # Test data loader
 val_dataloader = DataLoader(
-    ImageDataset(r"Dissertation\CycleGAN_erik_linder\data\%s" % opt.dataset_name, transforms_=transforms_, unaligned=True, mode="test"),
+    ImageDataset(dataset_path, transforms_=transforms_, unaligned=True, mode="test"),
     #ImageDataset("Dissertation\CycleGAN_erik_linder\data\dummy_data", transforms_=transforms_, unaligned=True, mode="test"),
     batch_size=5,
     shuffle=True,
@@ -171,7 +178,9 @@ def sample_images(batches_done):
 # ----------
 #  Training
 # ----------
-
+path = "Dissertation\\CycleGAN_erik_linder\\data\\"
+print(f"Data loaded from: {path}{opt.dataset_name}")
+print(os.listdir(f"{path}{opt.dataset_name}"))
 prev_time = time.time()
 for epoch in range(opt.epoch, opt.n_epochs):
     for i, batch in enumerate(dataloader):
