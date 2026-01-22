@@ -5,6 +5,7 @@ import math
 import itertools
 import datetime
 import time
+import random
 
 import torchvision.transforms as transforms
 from torchvision.utils import save_image, make_grid
@@ -21,6 +22,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
+# Model specifications
+TASKS = ["day2night", "horse2zebra", "summer2winter_yosemite", "monet2photo"]
+lora = False
+
+# Input parameters
 parser = argparse.ArgumentParser()
 parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
 parser.add_argument("--n_epochs", type=int, default=1, help="number of epochs of training")
@@ -55,16 +61,12 @@ opt.checkpoint_interval = 1
 
 print(opt)
 
-# Datasets for multitask training
-datasets_list = ["day2night", "horse2zebra", "summer2winter_yosemite", "monet2photo"]
-data_root = "Dissertation/data"
-
 # Create sample and checkpoint directories
 base_folder = r"Dissertation/CycleGAN_Unet"
 
-image_folder = os.path.join(base_folder, "images", opt.dataset_name)
-checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", opt.dataset_name)
-model_folder = os.path.join(base_folder, "saved_models", opt.dataset_name)
+image_folder = os.path.join(base_folder, "images", '-'.join(TASKS))
+checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", '-'.join(TASKS))
+model_folder = os.path.join(base_folder, "saved_models", '-'.join(TASKS))
 
 os.makedirs(image_folder, exist_ok=True)
 os.makedirs(checkpoint_folder, exist_ok=True)
@@ -90,7 +92,6 @@ D_A = Discriminator(input_shape)
 D_B = Discriminator(input_shape)
 
 # LoRA
-lora = True
 if lora:
     
     pretrained_path = f"{base_folder}/saved_models/day2night" + "/model_20260121_182305"
@@ -164,53 +165,104 @@ transforms_ = [
 ]
 
 # Training data loader
-data_path = os.path.join("Dissertation", "data", opt.dataset_name)
-print(f"Retreiving data from: {data_path}")
-print(os.listdir(data_path))
+data_path = os.path.join("Dissertation", "data")
 
-dataloader = DataLoader(
-    ImageDataset(data_path, transforms_=transforms_, unaligned=True),
-    #ImageDataset("Dissertation\CycleGAN_erik_linder\data\dummy_data", transforms_=transforms_, unaligned=True),
-    batch_size=opt.batch_size,
-    shuffle=True,
-    num_workers=opt.n_cpu,
-)
+data_root = os.path.join("Dissertation", "data")
+
+task_loaders = {}
+task_iters = {}
+
+for task in TASKS:
+    print(f"Retreiving data from: {os.path.join(data_root, task)}")
+    print(os.listdir(os.path.join(data_root, task)))
+    
+    dataset = ImageDataset(
+        root=os.path.join(data_root, task),
+        transforms_=transforms_,
+        unaligned=True,
+        mode="train"
+    )
+
+    loader = DataLoader(
+        dataset,
+        batch_size=opt.batch_size,
+        shuffle=True,
+        num_workers=opt.n_cpu,
+        drop_last=True
+    )
+
+    task_loaders[task] = loader
+    task_iters[task] = iter(loader)
+
 # Test data loader
-val_dataloader = DataLoader(
-    ImageDataset(data_path, transforms_=transforms_, unaligned=True, mode="test"),
-    #ImageDataset("Dissertation\CycleGAN_erik_linder\data\dummy_data", transforms_=transforms_, unaligned=True, mode="test"),
-    batch_size=5,
-    shuffle=True,
-    # num_workers=1,
-    num_workers=opt.n_cpu,
-)
+val_loaders = {}
+for task in TASKS:
+    val_dataset = ImageDataset(
+        root=os.path.join(data_root, task),
+        transforms_=transforms_,
+        unaligned=True,
+        mode="test"
+    )
+    val_loaders[task] = DataLoader(val_dataset, batch_size=5, shuffle=True, num_workers=0)
+
 
 
 def sample_images(batches_done):
-    """Saves a generated sample from the test set"""
-    imgs = next(iter(val_dataloader))
+    """Saves a generated sample from the validation loaders for all tasks."""
     G_AB.eval()
     G_BA.eval()
-    real_A = Variable(imgs["A"].type(Tensor))
-    fake_B = G_AB(real_A)
-    real_B = Variable(imgs["B"].type(Tensor))
-    fake_A = G_BA(real_B)
-    # Arange images along x-axis
-    real_A = make_grid(real_A, nrow=5, normalize=True)
-    real_B = make_grid(real_B, nrow=5, normalize=True)
-    fake_A = make_grid(fake_A, nrow=5, normalize=True)
-    fake_B = make_grid(fake_B, nrow=5, normalize=True)
-    # Arange images along y-axis
-    image_grid = torch.cat((real_A, fake_B, real_B, fake_A), 1)
-    save_image(image_grid, os.path.join(image_folder, f"{batches_done}.png"), normalize=False)
+    
+    for task, loader in val_loaders.items():
+        try:
+            imgs = next(iter(loader))
+        except StopIteration:
+            # Re-create iterator if exhausted
+            loader_iter = iter(loader)
+            imgs = next(loader_iter)
+        
+        real_A = Variable(imgs["A"].type(Tensor))
+        real_B = Variable(imgs["B"].type(Tensor))
+        fake_B = G_AB(real_A)
+        fake_A = G_BA(real_B)
+        
+        # Arrange images along x-axis
+        real_A_grid = make_grid(real_A, nrow=5, normalize=True)
+        fake_B_grid = make_grid(fake_B, nrow=5, normalize=True)
+        real_B_grid = make_grid(real_B, nrow=5, normalize=True)
+        fake_A_grid = make_grid(fake_A, nrow=5, normalize=True)
+        
+        # Arrange images along y-axis: [real_A | fake_B | real_B | fake_A]
+        image_grid = torch.cat((real_A_grid, fake_B_grid, real_B_grid, fake_A_grid), 1)
+        
+        # Save image with task name included
+        save_image(
+            image_grid,
+            os.path.join(image_folder, f"{task}_{batches_done}.png"),
+            normalize=False
+        )
+
 
 # ----------
 #  Training
 # ----------
+def get_batch(task):
+    try:
+        batch = next(task_iters[task])
+    except StopIteration:
+        task_iters[task] = iter(task_loaders[task])
+        batch = next(task_iters[task])
+    return batch
 
 prev_time = time.time()
 for epoch in range(opt.epoch, opt.n_epochs):
-    for i, batch in enumerate(dataloader):
+    steps_per_epoch = max(len(loader) for loader in task_loaders.values())
+
+    balanced_tasks = TASKS * (steps_per_epoch // len(TASKS) + 1)
+    balanced_tasks = balanced_tasks[:steps_per_epoch]  # trim to exact steps
+    random.shuffle(balanced_tasks)  # shuffle order within epoch
+
+    for step, task in enumerate(balanced_tasks):
+        batch = get_batch(task)
 
         # Set model input
         real_A = Variable(batch["A"].type(Tensor))
@@ -298,8 +350,8 @@ for epoch in range(opt.epoch, opt.n_epochs):
         # --------------
 
         # Determine approximate time left
-        batches_done = epoch * len(dataloader) + i
-        batches_left = opt.n_epochs * len(dataloader) - batches_done
+        batches_done = epoch * steps_per_epoch + step
+        batches_left = opt.n_epochs * steps_per_epoch - batches_done
         time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
         prev_time = time.time()
 
@@ -309,8 +361,8 @@ for epoch in range(opt.epoch, opt.n_epochs):
             % (
                 epoch + 1,
                 opt.n_epochs,
-                i + 1,
-                len(dataloader),
+                step + 1,
+                steps_per_epoch,
                 loss_D.item(),
                 loss_G.item(),
                 loss_GAN.item(),
