@@ -13,6 +13,7 @@ data/
 
 /saved_checkpoints/
 /saved_models/
+/images/
 
 /__pycache__/
 
