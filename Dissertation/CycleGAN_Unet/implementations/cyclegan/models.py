@@ -3,14 +3,21 @@ import torch.nn.functional as F
 import torch
 
 
+# def weights_init_normal(m):
+#     classname = m.__class__.__name__
+#     if classname.find("Conv") != -1:
+#         torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
+#         if hasattr(m, "bias") and m.bias is not None:
+#             torch.nn.init.constant_(m.bias.data, 0.0)
+#     elif classname.find("BatchNorm2d") != -1:
+#         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
+#         torch.nn.init.constant_(m.bias.data, 0.0)
+
 def weights_init_normal(m):
     classname = m.__class__.__name__
-    if classname.find("Conv") != -1:
+    if hasattr(m, 'weight') and classname.find("Conv") != -1:
         torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
-        if hasattr(m, "bias") and m.bias is not None:
-            torch.nn.init.constant_(m.bias.data, 0.0)
-    elif classname.find("BatchNorm2d") != -1:
-        torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
+    elif hasattr(m, 'bias') and m.bias is not None:
         torch.nn.init.constant_(m.bias.data, 0.0)
 
 
@@ -197,7 +204,85 @@ class GeneratorUNet(nn.Module):
         u4 = self.up4(u3, d1)
 
         return self.final(u4)
+    
 
+##############################
+#        LoRA
+##############################
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class LoRAConv2d(nn.Module):
+    def __init__(self, conv: nn.Conv2d, rank=4, alpha=1.0):
+        super().__init__()
+
+        self.conv = conv
+        self.rank = rank
+        self.alpha = alpha
+
+        # Freeze original weights
+        self.conv.weight.requires_grad = False
+        if self.conv.bias is not None:
+            self.conv.bias.requires_grad = False
+
+        out_ch, in_ch, kH, kW = conv.weight.shape
+
+        # LoRA parameters (low-rank)
+        self.lora_A = nn.Parameter(
+            torch.zeros(rank, in_ch * kH * kW)
+        )
+        self.lora_B = nn.Parameter(
+            torch.zeros(out_ch, rank)
+        )
+
+        # Good initialisation practice
+        nn.init.kaiming_uniform_(self.lora_A, a=5**0.5)
+        nn.init.zeros_(self.lora_B)
+
+    def forward(self, x):
+        # Original convolution
+        out = self.conv(x)
+
+        # ---- LoRA update ----
+        # (out_ch, rank) @ (rank, in_ch*kH*kW)
+        delta_w = self.lora_B @ self.lora_A
+
+        # Reshape back to Conv2d kernel
+        delta_w = delta_w.view(self.conv.weight.shape)
+
+        # Apply delta convolution
+        out += self.alpha * F.conv2d(
+            x,
+            delta_w,
+            bias=None,
+            stride=self.conv.stride,
+            padding=self.conv.padding,
+            dilation=self.conv.dilation,
+            groups=self.conv.groups,
+        )
+
+        return out
+
+
+def apply_lora_to_unet(unet_model, rank=4, alpha=1.0):
+    """
+    Recursively finds all Conv2d layers and wraps them with LoRA.
+    
+    unet_model: Description
+    rank: Description
+    alpha: Description
+    """
+    for name, module in unet_model.named_modules():
+        if isinstance(module, nn.Conv2d):
+            parent = unet_model
+            names = name.split(".")
+            for n in names[:-1]:
+                parent = getattr(parent, n)
+            setattr(parent, names[-1], LoRAConv2d(module, rank=rank, alpha=alpha))
+    return unet_model
 
 ##############################
 #        Discriminator
