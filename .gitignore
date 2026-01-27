@@ -22,3 +22,8 @@ __pycache__/
 /images/day2night/
 
 train_model.ipynb
+
+
+Dissertation/CycleGAN_Unet/images/
+Dissertation/CycleGAN_Unet/saved_checkpoints/
+Dissertation/CycleGAN_Unet/saved_models/
