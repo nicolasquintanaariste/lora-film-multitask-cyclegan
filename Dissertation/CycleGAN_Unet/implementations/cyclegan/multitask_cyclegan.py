@@ -48,18 +48,18 @@ parser.add_argument("--lambda_id", type=float, default=5.0, help="identity loss 
 
 opt = parser.parse_args()
 
-# Override parameters for local testing
-opt.dataset_name = "dummy_data"
-opt.n_cpu = 0
-opt.batch_size = 1
-opt.img_height = 128
-opt.img_width = 128
-opt.n_epochs = 4
-opt.decay_epoch = 1
-opt.n_residual_blocks = 3
-opt.checkpoint_interval = 1
+# # Override parameters for local testing
+# opt.dataset_name = "dummy_data"
+# opt.n_cpu = 0
+# opt.batch_size = 1
+# opt.img_height = 128
+# opt.img_width = 128
+# opt.n_epochs = 4
+# opt.decay_epoch = 1
+# opt.n_residual_blocks = 3
+# opt.checkpoint_interval = 1
 
-print(opt)
+# print(opt)
 
 # Create sample and checkpoint directories
 base_folder = r"Dissertation/CycleGAN_Unet"
