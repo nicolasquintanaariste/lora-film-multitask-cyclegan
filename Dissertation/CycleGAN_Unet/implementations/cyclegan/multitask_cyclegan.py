@@ -29,7 +29,7 @@ lora = False
 # Input parameters
 parser = argparse.ArgumentParser()
 parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
-parser.add_argument("--n_epochs", type=int, default=1, help="number of epochs of training")
+parser.add_argument("--n_epochs", type=int, default=4, help="number of epochs of training")
 parser.add_argument(
     "--tasks",
     nargs="+",
@@ -40,30 +40,18 @@ parser.add_argument("--batch_size", type=int, default=1, help="size of the batch
 parser.add_argument("--lr", type=float, default=0.0002, help="adam: learning rate")
 parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
 parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
-parser.add_argument("--n_cpu", type=int, default=8, help="number of cpu threads to use during batch generation")
-parser.add_argument("--img_height", type=int, default=256, help="size of image height")
-parser.add_argument("--img_width", type=int, default=256, help="size of image width")
+parser.add_argument("--decay_epoch", type=int, default=1, help="epoch from which to start lr decay")
+parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
+parser.add_argument("--img_height", type=int, default=64, help="size of image height")
+parser.add_argument("--img_width", type=int, default=64, help="size of image width")
 parser.add_argument("--channels", type=int, default=3, help="number of image channels")
 parser.add_argument("--sample_interval", type=int, default=100, help="interval between saving generator outputs")
-parser.add_argument("--checkpoint_interval", type=int, default=-1, help="interval between saving model checkpoints")
-parser.add_argument("--n_residual_blocks", type=int, default=9, help="number of residual blocks in generator")
+parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model checkpoints")
+parser.add_argument("--n_residual_blocks", type=int, default=3, help="number of residual blocks in generator")
 parser.add_argument("--lambda_cyc", type=float, default=10.0, help="cycle loss weight")
 parser.add_argument("--lambda_id", type=float, default=5.0, help="identity loss weight")
 
 opt = parser.parse_args()
-
-# Override parameters for local testing
-opt.n_cpu = 0
-opt.batch_size = 1
-opt.img_height = 128
-opt.img_width = 128
-opt.n_epochs = 4
-opt.decay_epoch = 1
-opt.n_residual_blocks = 3
-opt.checkpoint_interval = 1
-
-# print(opt)
 
 # Create sample and checkpoint directories
 base_folder = r"Dissertation/CycleGAN_Unet"
