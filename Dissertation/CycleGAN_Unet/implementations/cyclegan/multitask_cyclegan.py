@@ -30,7 +30,12 @@ lora = False
 parser = argparse.ArgumentParser()
 parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
 parser.add_argument("--n_epochs", type=int, default=1, help="number of epochs of training")
-parser.add_argument("--dataset_name", type=str, default="monet2photo", help="name of the dataset")
+parser.add_argument(
+    "--tasks",
+    nargs="+",
+    default=["day2night", "horse2zebra", "summer2winter_yosemite", "monet2photo"],
+    help="List of tasks/datasets to train on (space-separated)",
+)
 parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
 parser.add_argument("--lr", type=float, default=0.0002, help="adam: learning rate")
 parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
@@ -48,16 +53,15 @@ parser.add_argument("--lambda_id", type=float, default=5.0, help="identity loss 
 
 opt = parser.parse_args()
 
-# # Override parameters for local testing
-# opt.dataset_name = "dummy_data"
-# opt.n_cpu = 0
-# opt.batch_size = 1
-# opt.img_height = 128
-# opt.img_width = 128
-# opt.n_epochs = 4
-# opt.decay_epoch = 1
-# opt.n_residual_blocks = 3
-# opt.checkpoint_interval = 1
+# Override parameters for local testing
+opt.n_cpu = 0
+opt.batch_size = 1
+opt.img_height = 128
+opt.img_width = 128
+opt.n_epochs = 4
+opt.decay_epoch = 1
+opt.n_residual_blocks = 3
+opt.checkpoint_interval = 1
 
 # print(opt)
 
@@ -115,10 +119,10 @@ if cuda:
 
 if opt.epoch != 0:
     # Load pretrained models
-    G_AB.load_state_dict(torch.load("saved_models/%s/G_AB_%d.pth" % (opt.dataset_name, opt.epoch)))
-    G_BA.load_state_dict(torch.load("saved_models/%s/G_BA_%d.pth" % (opt.dataset_name, opt.epoch)))
-    D_A.load_state_dict(torch.load("saved_models/%s/D_A_%d.pth" % (opt.dataset_name, opt.epoch)))
-    D_B.load_state_dict(torch.load("saved_models/%s/D_B_%d.pth" % (opt.dataset_name, opt.epoch)))
+    G_AB.load_state_dict(torch.load("saved_models/%s/G_AB_%d.pth" % ('-'.join(opt.tasks), opt.epoch)))
+    G_BA.load_state_dict(torch.load("saved_models/%s/G_BA_%d.pth" % ('-'.join(opt.tasks), opt.epoch)))
+    D_A.load_state_dict(torch.load("saved_models/%s/D_A_%d.pth" % ('-'.join(opt.tasks), opt.epoch)))
+    D_B.load_state_dict(torch.load("saved_models/%s/D_B_%d.pth" % ('-'.join(opt.tasks), opt.epoch)))
 else:
     # Initialize weights
     G_AB.apply(weights_init_normal)
@@ -167,8 +171,7 @@ transforms_ = [
 # Training data loader
 data_path = os.path.join("Dissertation", "data")
 
-# data_root = os.path.join("Dissertation", "data")
-data_root = "/content/data" # Load data from colabs SSD
+data_root = os.path.join("Dissertation", "data")
 
 task_loaders = {}
 task_iters = {}
