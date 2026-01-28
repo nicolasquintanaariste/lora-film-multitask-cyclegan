@@ -167,7 +167,8 @@ transforms_ = [
 # Training data loader
 data_path = os.path.join("Dissertation", "data")
 
-data_root = os.path.join("Dissertation", "data")
+# data_root = os.path.join("Dissertation", "data")
+data_root = "/content/data" # Load data from colabs SSD
 
 task_loaders = {}
 task_iters = {}
