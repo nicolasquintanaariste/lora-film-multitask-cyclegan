@@ -22,13 +22,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
-# Model specifications
-TASKS = ["day2night", "horse2zebra", "summer2winter_yosemite", "monet2photo"]
-lora = False
-
 # Input parameters
 parser = argparse.ArgumentParser()
-parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
 parser.add_argument("--n_epochs", type=int, default=4, help="number of epochs of training")
 parser.add_argument(
     "--tasks",
@@ -50,15 +45,29 @@ parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval
 parser.add_argument("--n_residual_blocks", type=int, default=3, help="number of residual blocks in generator")
 parser.add_argument("--lambda_cyc", type=float, default=10.0, help="cycle loss weight")
 parser.add_argument("--lambda_id", type=float, default=5.0, help="identity loss weight")
+parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
+parser.add_argument(
+    "--checkpoint_model",
+    type=str,
+    default=None,
+    help="checkpoint to start training from. i.e saved_checkpoint/day2night"
+)
+parser.add_argument("--lora", action="store_true", help="fine tune using LoRA adapters")
+parser.add_argument(
+    "--pretrained_model",
+    type=str,
+    default=None,
+    help="pretrained model to finetune lora from. i.e saved_models/day2night/model_20260128_122440"
+)
 
 opt = parser.parse_args()
 
 # Create sample and checkpoint directories
-base_folder = r"Dissertation/CycleGAN_Unet"
+base_folder = os.path.join("Dissertation", "CycleGAN_Unet")
 
-image_folder = os.path.join(base_folder, "images", '-'.join(TASKS))
-checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", '-'.join(TASKS))
-model_folder = os.path.join(base_folder, "saved_models", '-'.join(TASKS))
+image_folder = os.path.join(base_folder, "images", '-'.join(opt.tasks) + '_lora' if opt.lora else '')
+checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", '-'.join(opt.tasks) + '_lora' if opt.lora else '')
+model_folder = os.path.join(base_folder, "saved_models", '-'.join(opt.tasks) + '_lora' if opt.lora else '')
 
 os.makedirs(image_folder, exist_ok=True)
 os.makedirs(checkpoint_folder, exist_ok=True)
@@ -83,16 +92,6 @@ G_BA = GeneratorUNet(input_shape)
 D_A = Discriminator(input_shape)
 D_B = Discriminator(input_shape)
 
-# LoRA
-if lora:
-    
-    pretrained_path = f"{base_folder}/saved_models/day2night" + "/model_20260121_182305"
-    G_AB.load_state_dict(torch.load(pretrained_path + "/G_AB_final.pth"))
-    G_BA.load_state_dict(torch.load(pretrained_path + "/G_BA_final.pth"))
-    
-    G_AB = apply_lora_to_unet(G_AB, rank=4, alpha=1.0)
-    G_BA = apply_lora_to_unet(G_BA, rank=4, alpha=1.0)
-
 print("Generator parameters (G_AB, G_BA, G_AB + G_BA):", count_parameters(G_AB), count_parameters(G_AB), count_parameters(G_AB) + count_parameters(G_BA))
 print("Discriminator parameters (D_A, D_B, D_A + D_B):", count_parameters(D_A), count_parameters(D_B), count_parameters(D_A) + count_parameters(D_B))
 
@@ -107,10 +106,18 @@ if cuda:
 
 if opt.epoch != 0:
     # Load pretrained models
-    G_AB.load_state_dict(torch.load("saved_models/%s/G_AB_%d.pth" % ('-'.join(opt.tasks), opt.epoch)))
-    G_BA.load_state_dict(torch.load("saved_models/%s/G_BA_%d.pth" % ('-'.join(opt.tasks), opt.epoch)))
-    D_A.load_state_dict(torch.load("saved_models/%s/D_A_%d.pth" % ('-'.join(opt.tasks), opt.epoch)))
-    D_B.load_state_dict(torch.load("saved_models/%s/D_B_%d.pth" % ('-'.join(opt.tasks), opt.epoch)))
+    G_AB.load_state_dict(torch.load())
+    G_BA.load_state_dict(torch.load("%s/G_BA_%d.pth" % (opt.checkpoint_model, opt.epoch)))
+    D_A.load_state_dict(torch.load("saved_models/%s/D_A_%d.pth" % (opt.checkpoint_model, opt.epoch)))
+    D_B.load_state_dict(torch.load("saved_models/%s/D_B_%d.pth" % (opt.checkpoint_model, opt.epoch)))
+elif opt.lora:
+    # Fine tune frozen network with loRA
+    pretrained_path = f"{base_folder}/{opt.pretrained_model}"
+    G_AB.load_state_dict(torch.load(pretrained_path + "/G_AB_final.pth"))
+    G_BA.load_state_dict(torch.load(pretrained_path + "/G_BA_final.pth"))
+    
+    G_AB = apply_lora_to_unet(G_AB, rank=4, alpha=1.0)
+    G_BA = apply_lora_to_unet(G_BA, rank=4, alpha=1.0)
 else:
     # Initialize weights
     G_AB.apply(weights_init_normal)
@@ -118,11 +125,12 @@ else:
     D_A.apply(weights_init_normal)
     D_B.apply(weights_init_normal)
 
+
 # Optimizers
 optimizer_G = torch.optim.Adam(
     itertools.chain(G_AB.parameters(), G_BA.parameters()), lr=opt.lr, betas=(opt.b1, opt.b2)
 )
-if lora:
+if opt.lora:
     lora_params = [p for p in G_AB.parameters() if p.requires_grad] + \
                 [p for p in G_BA.parameters() if p.requires_grad]
     optimizer_G = torch.optim.Adam(lora_params, lr=opt.lr, betas=(opt.b1, opt.b2))
@@ -164,7 +172,7 @@ data_root = os.path.join("Dissertation", "data")
 task_loaders = {}
 task_iters = {}
 
-for task in TASKS:
+for task in opt.tasks:
     print(f"Retreiving data from: {os.path.join(data_root, task)}")
     print(os.listdir(os.path.join(data_root, task)))
     
@@ -188,7 +196,7 @@ for task in TASKS:
 
 # Test data loader
 val_loaders = {}
-for task in TASKS:
+for task in opt.tasks:
     val_dataset = ImageDataset(
         root=os.path.join(data_root, task),
         transforms_=transforms_,
@@ -249,7 +257,7 @@ prev_time = time.time()
 for epoch in range(opt.epoch, opt.n_epochs):
     steps_per_epoch = max(len(loader) for loader in task_loaders.values())
 
-    balanced_tasks = TASKS * (steps_per_epoch // len(TASKS) + 1)
+    balanced_tasks = opt.tasks * (steps_per_epoch // len(opt.tasks) + 1)
     balanced_tasks = balanced_tasks[:steps_per_epoch]  # trim to exact steps
     random.shuffle(balanced_tasks)  # shuffle order within epoch
 
@@ -386,7 +394,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
         torch.save(D_A.state_dict(), os.path.join(checkpoint_folder, f"D_A_{epoch}.pth"))
         torch.save(D_B.state_dict(), os.path.join(checkpoint_folder, f"D_B_{epoch}.pth"))
         
-        print(f"Models saved → {checkpoint_folder}", flush=True)
+        print(f" Models saved → {checkpoint_folder}", flush=True)
 
 # -----------------------------
 # Save final model with timestamp
@@ -400,7 +408,7 @@ torch.save(G_BA.state_dict(), os.path.join(final_folder, "G_BA_final.pth"))
 torch.save(D_A.state_dict(), os.path.join(final_folder, "D_A_final.pth"))
 torch.save(D_B.state_dict(), os.path.join(final_folder, "D_B_final.pth"))
 
-if lora:
+if opt.lora:
     lora_state_dict = {k: v for k, v in G_AB.state_dict().items() if v.requires_grad}
     torch.save(lora_state_dict, os.path.join(final_folder, "G_AB_lora.pth"))
     lora_state_dict = {k: v for k, v in G_BA.state_dict().items() if v.requires_grad}

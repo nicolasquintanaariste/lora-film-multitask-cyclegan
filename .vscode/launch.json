@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug multitask_cyclegan (LoRA)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/Dissertation/CycleGAN_Unet/implementations/cyclegan/multitask_cyclegan.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "args": [
+        "--tasks", "day2night",
+        "--lora",
+        "--pretrained_model", "saved_models/day2night-horse2zebra-summer2winter_yosemite-monet2photo/model_20260128_131022"
+      ]
+    }
+  ]
+}
