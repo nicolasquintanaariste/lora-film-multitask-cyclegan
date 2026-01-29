@@ -132,12 +132,13 @@ if cuda:
     criterion_cycle.cuda()
     criterion_identity.cuda()
 
-if opt.epoch != 0:
-    # Load pretrained models
-    G_AB.load_state_dict(torch.load())
-    G_BA.load_state_dict(torch.load("%s/G_BA_%d.pth" % (opt.checkpoint_model, opt.epoch)))
-    D_A.load_state_dict(torch.load("saved_models/%s/D_A_%d.pth" % (opt.checkpoint_model, opt.epoch)))
-    D_B.load_state_dict(torch.load("saved_models/%s/D_B_%d.pth" % (opt.checkpoint_model, opt.epoch)))
+if opt.checkpoint_model is not None:
+    print(f"Resuming training from epoch {opt.epoch}")
+    G_AB.load_state_dict(torch.load(os.path.join(opt.checkpoint_model, f"G_AB_{opt.epoch}.pth")))
+    G_BA.load_state_dict(torch.load(os.path.join(opt.checkpoint_model, f"G_BA_{opt.epoch}.pth")))
+    D_A.load_state_dict(torch.load(os.path.join(opt.checkpoint_model, f"D_A_{opt.epoch}.pth")))
+    D_B.load_state_dict(torch.load(os.path.join(opt.checkpoint_model, f"D_B_{opt.epoch}.pth")))
+    
 elif opt.lora:
     # Fine tune frozen network with loRA
     pretrained_path = f"{base_folder}/{opt.pretrained_model}"
@@ -323,7 +324,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
         loss_GAN_BA = criterion_GAN(D_A(fake_A), valid)
         
         # ---- DEBUG: discriminator signal ----
-        if batches_done % 500 == 0:
+        if batches_done % 2000 == 0:
             with torch.no_grad():
                 d_real = D_B(real_B).mean().item()
                 d_fake = D_B(fake_B.detach()).mean().item()
