@@ -80,7 +80,6 @@ image_folder = os.path.join(base_folder, "images", task_name + suffix)
 checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", task_name + suffix)
 model_folder = os.path.join(base_folder, "saved_models", task_name + suffix)
 
-
 os.makedirs(image_folder, exist_ok=True)
 os.makedirs(checkpoint_folder, exist_ok=True)
 os.makedirs(model_folder, exist_ok=True)
@@ -92,6 +91,7 @@ criterion_identity = torch.nn.L1Loss()
 
 cuda = torch.cuda.is_available()
 print("CUDA available:", cuda)
+print("Using data folder:", opt.data_folder)
 
 input_shape = (opt.channels, opt.img_height, opt.img_width)
 
