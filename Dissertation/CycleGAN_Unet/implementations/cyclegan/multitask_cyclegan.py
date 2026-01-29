@@ -22,6 +22,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
+# Base folder
+base_folder = os.path.join("Dissertation", "CycleGAN_Unet")
+data_root = os.path.join("Dissertation", "data")
+
 # Input parameters
 parser = argparse.ArgumentParser()
 parser.add_argument("--n_epochs", type=int, default=4, help="number of epochs of training")
@@ -47,6 +51,12 @@ parser.add_argument("--lambda_cyc", type=float, default=10.0, help="cycle loss w
 parser.add_argument("--lambda_id", type=float, default=5.0, help="identity loss weight")
 parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
 parser.add_argument(
+    "--data_folder",
+    type=str,
+    default=data_root,
+    help="folder from which the data is retreived from"
+)
+parser.add_argument(
     "--checkpoint_model",
     type=str,
     default=None,
@@ -63,7 +73,6 @@ parser.add_argument(
 opt = parser.parse_args()
 
 # Create sample and checkpoint directories
-base_folder = os.path.join("Dissertation", "CycleGAN_Unet")
 task_name = "-".join(opt.tasks)
 suffix = "_lora" if opt.lora else ""
 
@@ -187,19 +196,15 @@ transforms_ = [
 ]
 
 # Training data loader
-data_path = os.path.join("Dissertation", "data")
-
-data_root = os.path.join("Dissertation", "data")
-
 task_loaders = {}
 task_iters = {}
 
 for task in opt.tasks:
-    print(f"Retreiving data from: {os.path.join(data_root, task)}")
-    print(os.listdir(os.path.join(data_root, task)))
+    print(f"Retreiving data from: {os.path.join(opt.data_folder, task)}")
+    print(os.listdir(os.path.join(opt.data_folder, task)))
     
     dataset = ImageDataset(
-        root=os.path.join(data_root, task),
+        root=os.path.join(opt.data_folder, task),
         transforms_=transforms_,
         unaligned=True,
         mode="train"
@@ -220,7 +225,7 @@ for task in opt.tasks:
 val_loaders = {}
 for task in opt.tasks:
     val_dataset = ImageDataset(
-        root=os.path.join(data_root, task),
+        root=os.path.join(opt.data_folder, task),
         transforms_=transforms_,
         unaligned=True,
         mode="test"
