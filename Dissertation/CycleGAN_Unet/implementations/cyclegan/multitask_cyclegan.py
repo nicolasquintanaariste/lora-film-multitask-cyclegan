@@ -64,10 +64,13 @@ opt = parser.parse_args()
 
 # Create sample and checkpoint directories
 base_folder = os.path.join("Dissertation", "CycleGAN_Unet")
+task_name = "-".join(opt.tasks)
+suffix = "_lora" if opt.lora else ""
 
-image_folder = os.path.join(base_folder, "images", '-'.join(opt.tasks) + '_lora' if opt.lora else '')
-checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", '-'.join(opt.tasks) + '_lora' if opt.lora else '')
-model_folder = os.path.join(base_folder, "saved_models", '-'.join(opt.tasks) + '_lora' if opt.lora else '')
+image_folder = os.path.join(base_folder, "images", task_name + suffix)
+checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", task_name + suffix)
+model_folder = os.path.join(base_folder, "saved_models", task_name + suffix)
+
 
 os.makedirs(image_folder, exist_ok=True)
 os.makedirs(checkpoint_folder, exist_ok=True)
@@ -86,6 +89,22 @@ input_shape = (opt.channels, opt.img_height, opt.img_width)
 # Initialize generator and discriminator
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+# LoRA report
+def lora_report(model, name="G"):
+    total = sum(p.numel() for p in model.parameters())
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    lora_modules = sum(1 for _, m in model.named_modules() if "lora" in type(m).__name__.lower())
+    lora_trainable = sum(p.numel() for n, p in model.named_parameters()
+                         if p.requires_grad and "lora" in n.lower())
+    print(f"[LoRA:{name}] mods={lora_modules} train={trainable:,}/{total:,} ({trainable/total*100:.3f}%) "
+          f"lora_train={lora_trainable:,}")
+
+def lora_grad_mean(model):
+    grads = [p.grad.detach().abs().mean().item()
+             for n, p in model.named_parameters()
+             if "lora" in n.lower() and p.grad is not None]
+    return float(np.mean(grads)) if grads else 0.0
 
 G_AB = GeneratorUNet(input_shape)
 G_BA = GeneratorUNet(input_shape)
@@ -118,6 +137,9 @@ elif opt.lora:
     
     G_AB = apply_lora_to_unet(G_AB, rank=4, alpha=1.0)
     G_BA = apply_lora_to_unet(G_BA, rank=4, alpha=1.0)
+    
+    lora_report(G_AB, "G_AB")
+    lora_report(G_BA, "G_BA")
 else:
     # Initialize weights
     G_AB.apply(weights_init_normal)
@@ -262,6 +284,8 @@ for epoch in range(opt.epoch, opt.n_epochs):
     random.shuffle(balanced_tasks)  # shuffle order within epoch
 
     for step, task in enumerate(balanced_tasks):
+        batches_done = epoch * steps_per_epoch + step
+        
         batch = get_batch(task)
 
         # Set model input
@@ -292,6 +316,13 @@ for epoch in range(opt.epoch, opt.n_epochs):
         loss_GAN_AB = criterion_GAN(D_B(fake_B), valid)
         fake_A = G_BA(real_B)
         loss_GAN_BA = criterion_GAN(D_A(fake_A), valid)
+        
+        # ---- DEBUG: discriminator signal ----
+        if batches_done % 100 == 0:
+            with torch.no_grad():
+                d_real = D_B(real_B).mean().item()
+                d_fake = D_B(fake_B.detach()).mean().item()
+            print(f"\n[D_B] mean real={d_real:.3f} fake={d_fake:.3f}")
 
         loss_GAN = (loss_GAN_AB + loss_GAN_BA) / 2
 
@@ -307,6 +338,11 @@ for epoch in range(opt.epoch, opt.n_epochs):
         loss_G = loss_GAN + opt.lambda_cyc * loss_cycle + opt.lambda_id * loss_identity
 
         loss_G.backward()
+        
+        # LoRA learning check
+        if opt.lora and (batches_done % 2 == 0):
+            print(f" \n [LoRA] grad_mean AB={lora_grad_mean(G_AB):.2e} BA={lora_grad_mean(G_BA):.2e}")
+        
         optimizer_G.step()
 
         # -----------------------
@@ -350,7 +386,6 @@ for epoch in range(opt.epoch, opt.n_epochs):
         # --------------
 
         # Determine approximate time left
-        batches_done = epoch * steps_per_epoch + step
         batches_left = opt.n_epochs * steps_per_epoch - batches_done
         time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
         prev_time = time.time()
@@ -409,7 +444,9 @@ torch.save(D_A.state_dict(), os.path.join(final_folder, "D_A_final.pth"))
 torch.save(D_B.state_dict(), os.path.join(final_folder, "D_B_final.pth"))
 
 if opt.lora:
-    lora_state_dict = {k: v for k, v in G_AB.state_dict().items() if v.requires_grad}
+    lora_state_dict = {name: param.detach().cpu()
+                    for name, param in G_AB.named_parameters()
+                    if param.requires_grad}
     torch.save(lora_state_dict, os.path.join(final_folder, "G_AB_lora.pth"))
-    lora_state_dict = {k: v for k, v in G_BA.state_dict().items() if v.requires_grad}
-    torch.save(lora_state_dict, os.path.join(final_folder, "G_BA_lora.pth"))
+    
+    print("LoRA keys sample:", [k for k in G_AB.state_dict().keys() if "lora" in k.lower()][:10])
