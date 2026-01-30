@@ -143,7 +143,7 @@ class UNetUp(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.model = nn.Sequential(
-            nn.Upsample(scale_factor=2),
+            nn.Upsample(scale_factor=2, mode='bilinear'),
             nn.Conv2d(in_channels, out_channels, 3, stride=1, padding=1),
             nn.InstanceNorm2d(out_channels),
             nn.ReLU(inplace=True),
