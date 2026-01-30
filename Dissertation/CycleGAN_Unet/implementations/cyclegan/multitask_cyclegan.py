@@ -6,6 +6,7 @@ import itertools
 import datetime
 import time
 import random
+import sys
 
 import torchvision.transforms as transforms
 from torchvision.utils import save_image, make_grid
@@ -22,9 +23,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
+from loss_utils import LossLogger, plot_losses
+
 # Base folder
 base_folder = os.path.join("Dissertation", "CycleGAN_Unet")
 data_root = os.path.join("Dissertation", "data")
+
+start_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 # Input parameters
 parser = argparse.ArgumentParser()
@@ -44,7 +49,7 @@ parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads 
 parser.add_argument("--img_height", type=int, default=64, help="size of image height")
 parser.add_argument("--img_width", type=int, default=64, help="size of image width")
 parser.add_argument("--channels", type=int, default=3, help="number of image channels")
-parser.add_argument("--sample_interval", type=int, default=100, help="interval between saving generator outputs")
+parser.add_argument("--sample_interval", type=int, default=500, help="interval between saving generator outputs")
 parser.add_argument("--checkpoint_interval", type=int, default=5, help="interval between saving model checkpoints")
 parser.add_argument("--n_residual_blocks", type=int, default=3, help="number of residual blocks in generator")
 parser.add_argument("--lambda_cyc", type=float, default=10.0, help="cycle loss weight")
@@ -79,6 +84,7 @@ suffix = "_lora" if opt.lora else ""
 image_folder = os.path.join(base_folder, "images", task_name + suffix)
 checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", task_name + suffix)
 model_folder = os.path.join(base_folder, "saved_models", task_name + suffix)
+model_path = os.path.join(model_folder, f"model_{start_time}")
 
 os.makedirs(image_folder, exist_ok=True)
 os.makedirs(checkpoint_folder, exist_ok=True)
@@ -94,6 +100,14 @@ print("CUDA available:", cuda)
 print("Using data folder:", opt.data_folder)
 
 input_shape = (opt.channels, opt.img_height, opt.img_width)
+
+# Loss logging
+os.makedirs(model_path, exist_ok=True)
+
+loss_csv = os.path.join(model_path, "loss_log.csv")
+loss_plot_path = os.path.join(model_path, "loss_plot.png")
+logger = LossLogger(csv_path=loss_csv)
+
 
 # Initialize generator and discriminator
 def count_parameters(model):
@@ -324,7 +338,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
         loss_GAN_BA = criterion_GAN(D_A(fake_A), valid)
         
         # ---- DEBUG: discriminator signal ----
-        if batches_done % 2000 == 0:
+        if batches_done % 600 == 0:
             with torch.no_grad():
                 d_real = D_B(real_B).mean().item()
                 d_fake = D_B(fake_B.detach()).mean().item()
@@ -395,6 +409,28 @@ for epoch in range(opt.epoch, opt.n_epochs):
         batches_left = opt.n_epochs * steps_per_epoch - batches_done
         time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
         prev_time = time.time()
+        
+        # Graph log
+        with torch.no_grad():
+            dA_real_mean = D_A(real_A).mean().item()
+            dA_fake_mean = D_A(fake_A.detach()).mean().item()
+            dB_real_mean = D_B(real_B).mean().item()
+            dB_fake_mean = D_B(fake_B.detach()).mean().item()
+
+        logger.log(
+            step=batches_done,
+            loss_G=loss_G.item(),
+            loss_GAN=loss_GAN.item(),
+            loss_cycle=loss_cycle.item(),
+            loss_identity=loss_identity.item(),
+            loss_D=loss_D.item(),
+            loss_D_A=loss_D_A.item(),
+            loss_D_B=loss_D_B.item(),
+            dA_real_mean=dA_real_mean,
+            dA_fake_mean=dA_fake_mean,
+            dB_real_mean=dB_real_mean,
+            dB_fake_mean=dB_fake_mean,
+        )           
 
         # Print log
         sys.stdout.write(
@@ -416,6 +452,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
         # If at sample interval save image
         if batches_done % opt.sample_interval == 0:
             sample_images(batches_done)
+            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=5000, show=False)
 
     # Update learning rates
     lr_scheduler_G.step()
@@ -440,19 +477,15 @@ for epoch in range(opt.epoch, opt.n_epochs):
 # -----------------------------
 # Save final model with timestamp
 # -----------------------------
-end_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-final_folder = os.path.join(model_folder, f"model_{end_time}")
-os.makedirs(final_folder, exist_ok=True)
-
-torch.save(G_AB.state_dict(), os.path.join(final_folder, "G_AB_final.pth"))
-torch.save(G_BA.state_dict(), os.path.join(final_folder, "G_BA_final.pth"))
-torch.save(D_A.state_dict(), os.path.join(final_folder, "D_A_final.pth"))
-torch.save(D_B.state_dict(), os.path.join(final_folder, "D_B_final.pth"))
+torch.save(G_AB.state_dict(), os.path.join(model_path, "G_AB_final.pth"))
+torch.save(G_BA.state_dict(), os.path.join(model_path, "G_BA_final.pth"))
+torch.save(D_A.state_dict(), os.path.join(model_path, "D_A_final.pth"))
+torch.save(D_B.state_dict(), os.path.join(model_path, "D_B_final.pth"))
 
 if opt.lora:
     lora_state_dict = {name: param.detach().cpu()
                     for name, param in G_AB.named_parameters()
                     if param.requires_grad}
-    torch.save(lora_state_dict, os.path.join(final_folder, "G_AB_lora.pth"))
+    torch.save(lora_state_dict, os.path.join(model_path, "G_AB_lora.pth"))
     
     print("LoRA keys sample:", [k for k in G_AB.state_dict().keys() if "lora" in k.lower()][:10])
