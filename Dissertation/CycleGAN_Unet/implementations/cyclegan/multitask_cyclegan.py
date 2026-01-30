@@ -337,12 +337,12 @@ for epoch in range(opt.epoch, opt.n_epochs):
         fake_A = G_BA(real_B)
         loss_GAN_BA = criterion_GAN(D_A(fake_A), valid)
         
-        # ---- DEBUG: discriminator signal ----
-        if batches_done % 600 == 0:
-            with torch.no_grad():
-                d_real = D_B(real_B).mean().item()
-                d_fake = D_B(fake_B.detach()).mean().item()
-            print(f"\n[D_B] mean real={d_real:.3f} fake={d_fake:.3f}")
+        # # ---- DEBUG: discriminator signal ----
+        # if batches_done % 600 == 0:
+        #     with torch.no_grad():
+        #         d_real = D_B(real_B).mean().item()
+        #         d_fake = D_B(fake_B.detach()).mean().item()
+        #     print(f"\n[D_B] mean real={d_real:.3f} fake={d_fake:.3f}")
 
         loss_GAN = (loss_GAN_AB + loss_GAN_BA) / 2
 
@@ -452,7 +452,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
         # If at sample interval save image
         if batches_done % opt.sample_interval == 0:
             sample_images(batches_done)
-            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=5000, show=False)
+            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=5000, show=True)
 
     # Update learning rates
     lr_scheduler_G.step()
