@@ -452,7 +452,7 @@ for epoch in range(opt.epoch, opt.n_epochs):
         # If at sample interval save image
         if batches_done % opt.sample_interval == 0:
             sample_images(batches_done)
-            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=5000, show=True)
+            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=5000, show=False)
 
     # Update learning rates
     lr_scheduler_G.step()
