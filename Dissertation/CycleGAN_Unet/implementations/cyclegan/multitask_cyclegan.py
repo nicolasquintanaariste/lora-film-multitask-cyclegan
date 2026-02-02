@@ -529,8 +529,8 @@ def main():
                 
             # Copy model folder to drive
             if opt.save_model and opt.session_folder != base_folder:
-                destination = os.path.join(base_folder, "saved_models", task_name + suffix)
-                copy_missing(model_folder, destination)            
+                destination = os.path.join(base_folder, "saved_models", task_name + suffix,  os.path.basename(model_folder))
+                copy_missing(model_folder, destination)       
 
         # Update learning rates
         lr_scheduler_G.step()
