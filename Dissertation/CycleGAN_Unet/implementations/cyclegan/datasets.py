@@ -41,3 +41,23 @@ class ImageDataset(Dataset):
 
     def __len__(self):
         return max(len(self.files_A), len(self.files_B))
+
+class ImageDatasetMetrics(Dataset):
+    def __init__(self, root, transforms_=None, unaligned=False):
+        self.transform = transforms.Compose(transforms_)
+        self.unaligned = unaligned
+
+        self.files_B = sorted(glob.glob(os.path.join(root, "test", "B", "*.*")))
+
+    def __getitem__(self, index):
+        image_B = Image.open(self.files_B[index % len(self.files_B)])
+
+        # Convert grayscale images to RGB
+        if image_B.mode != "RGB":
+            image_B = to_rgb(image_B)
+        item_B = self.transform(image_B)
+
+        return {"B": item_B}
+
+    def __len__(self):
+        return len(self.files_B)
