@@ -27,6 +27,8 @@ import torch
 from loss_utils import LossLogger, plot_losses
 from metrics_utils import MetricLogger, plot_fid, plot_kid, compute_fid_kid, fid_save_real
 
+from IPython.display import clear_output
+
 import warnings
 
 warnings.filterwarnings(
@@ -535,6 +537,8 @@ def main():
         lr_scheduler_D_A.step()
         lr_scheduler_D_B.step()
         
+        clear_output(wait=True)
+        
         # Plot FID
         fid_inference(epoch)
         fake_dir = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
@@ -544,18 +548,18 @@ def main():
         plot_fid(
             metric_logger,
             out_path=os.path.join(local_model_folder, f"fid_{task}.png"),
-            show=False
+            show=True
         )
         plot_kid(
             metric_logger,
             out_path=os.path.join(local_model_folder, f"kid_{task}.png"),
-            show=False
+            show=True
         )
         
-        # 
+        # Generate samples and plot losses
         if epoch % opt.sample_interval == 0:
             sample_images(epoch)
-            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
+            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=True)      
 
         
         # Copy model folder to drive
