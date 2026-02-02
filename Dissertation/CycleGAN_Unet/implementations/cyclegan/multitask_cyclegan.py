@@ -548,18 +548,18 @@ def main():
         plot_fid(
             metric_logger,
             out_path=os.path.join(local_model_folder, f"fid_{task}.png"),
-            show=True
+            show=False
         )
         plot_kid(
             metric_logger,
             out_path=os.path.join(local_model_folder, f"kid_{task}.png"),
-            show=True
+            show=False
         )
         
         # Generate samples and plot losses
         if epoch % opt.sample_interval == 0:
             sample_images(epoch)
-            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=True)      
+            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
 
         
         # Copy model folder to drive
