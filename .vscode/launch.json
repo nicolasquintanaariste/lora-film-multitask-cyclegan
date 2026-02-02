@@ -11,6 +11,8 @@
       "justMyCode": false,
       "args": [
         "--tasks", "day2night",
+        "--session_folder", "test",
+        "--save_model"
         //"--img_height", "512",
         //"--img_width", "512",
         //"--lora",

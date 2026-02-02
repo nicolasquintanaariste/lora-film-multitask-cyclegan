@@ -100,11 +100,14 @@ def main():
     task_name = "-".join(opt.tasks)
     suffix = "_lora" if opt.lora else ""
 
-    model_folder = os.path.join(opt.session_folder, "saved_models", task_name + suffix, f"model_{start_time}")
-    os.makedirs(model_folder, exist_ok=True)
+    local_model_folder = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time}")
+    os.makedirs(local_model_folder, exist_ok=True)
 
-    image_folder = os.path.join(model_folder, "images")
-    fid_image_dir = os.path.join(model_folder, "images", "fake")
+    session_model_folder = os.path.join(opt.session_folder, "saved_models", task_name + suffix, f"model_{start_time}")
+    os.makedirs(session_model_folder, exist_ok=True)
+
+    image_folder = os.path.join(session_model_folder, "images")
+    fid_image_dir = os.path.join(session_model_folder, "images", "fake")
     fid_image_dir_A = os.path.join(fid_image_dir, "A")
     fid_image_dir_B = os.path.join(fid_image_dir, "B")
     
@@ -149,16 +152,16 @@ def main():
         n_cpu=opt.n_cpu
     )
     
-    fidkid_csv = os.path.join(model_folder, "fid_kid_log.csv")
-    fidkid_plot_path = os.path.join(model_folder, "fid_kid_epoch.png")
+    fidkid_csv = os.path.join(local_model_folder, "fid_kid_log.csv")
+    fidkid_plot_path = os.path.join(local_model_folder, "fid_kid_epoch.png")
     fid_task = opt.tasks[0]  # only the first task
-    metric_logger = MetricLogger(csv_path=os.path.join(model_folder, "fid_kid.csv"))
+    metric_logger = MetricLogger(csv_path=os.path.join(local_model_folder, "fid_kid.csv"))
 
     # Loss plots
-    os.makedirs(model_folder, exist_ok=True)
+    os.makedirs(session_model_folder, exist_ok=True)
 
-    loss_csv = os.path.join(model_folder, "loss_log.csv")
-    loss_plot_path = os.path.join(model_folder, "loss_plot.png")
+    loss_csv = os.path.join(local_model_folder, "loss_log.csv")
+    loss_plot_path = os.path.join(local_model_folder, "loss_plot.png")
     logger = LossLogger(csv_path=loss_csv)
 
     # Initialize generator and discriminator
@@ -525,12 +528,7 @@ def main():
             # If at sample interval save image
             if batches_done % opt.sample_interval == 0:
                 sample_images(batches_done)
-                plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=5000, show=False)
-                
-            # Copy model folder to drive
-            if opt.save_model and opt.session_folder != base_folder:
-                destination = os.path.join(base_folder, "saved_models", task_name + suffix,  os.path.basename(model_folder))
-                copy_missing(model_folder, destination)       
+                plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=5000, show=False)      
 
         # Update learning rates
         lr_scheduler_G.step()
@@ -545,15 +543,19 @@ def main():
         metric_logger.log(epoch=epoch + 1, fid=fid, kid=kid)
         plot_fid(
             metric_logger,
-            out_path=os.path.join(model_folder, f"fid_{task}.png"),
+            out_path=os.path.join(local_model_folder, f"fid_{task}.png"),
             show=False
         )
         plot_kid(
             metric_logger,
-            out_path=os.path.join(model_folder, f"kid_{task}.png"),
+            out_path=os.path.join(local_model_folder, f"kid_{task}.png"),
             show=False
         )
-
+        
+        # Copy model folder to drive
+        if opt.save_model and os.path.abspath(opt.session_folder) != os.path.abspath(base_folder):
+            destination = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time}")
+            copy_missing(session_model_folder, destination)
 
         if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
             # Remove previous checkpoints
@@ -573,16 +575,16 @@ def main():
     # -----------------------------
     # Save final model with timestamp
     # -----------------------------
-    torch.save(G_AB.state_dict(), os.path.join(model_folder, "G_AB_final.pth"))
-    torch.save(G_BA.state_dict(), os.path.join(model_folder, "G_BA_final.pth"))
-    torch.save(D_A.state_dict(), os.path.join(model_folder, "D_A_final.pth"))
-    torch.save(D_B.state_dict(), os.path.join(model_folder, "D_B_final.pth"))
+    torch.save(G_AB.state_dict(), os.path.join(session_model_folder, "G_AB_final.pth"))
+    torch.save(G_BA.state_dict(), os.path.join(session_model_folder, "G_BA_final.pth"))
+    torch.save(D_A.state_dict(), os.path.join(session_model_folder, "D_A_final.pth"))
+    torch.save(D_B.state_dict(), os.path.join(session_model_folder, "D_B_final.pth"))
 
     if opt.lora:
         lora_state_dict = {name: param.detach().cpu()
                         for name, param in G_AB.named_parameters()
                         if param.requires_grad}
-        torch.save(lora_state_dict, os.path.join(model_folder, "G_AB_lora.pth"))
+        torch.save(lora_state_dict, os.path.join(session_model_folder, "G_AB_lora.pth"))
         
         print("LoRA keys sample:", [k for k in G_AB.state_dict().keys() if "lora" in k.lower()][:10])
 
