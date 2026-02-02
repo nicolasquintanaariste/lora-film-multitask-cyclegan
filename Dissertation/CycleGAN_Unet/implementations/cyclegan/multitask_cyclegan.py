@@ -525,10 +525,10 @@ def main():
                 )
             )
 
-            # If at sample interval save image
-            if batches_done % opt.sample_interval == 0:
-                sample_images(batches_done)
-                plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=5000, show=False)      
+            # # If at sample interval save image
+            # if batches_done % opt.sample_interval == 0:
+            #     sample_images(batches_done)
+            #     plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
 
         # Update learning rates
         lr_scheduler_G.step()
@@ -551,6 +551,12 @@ def main():
             out_path=os.path.join(local_model_folder, f"kid_{task}.png"),
             show=False
         )
+        
+        # 
+        if epoch % opt.sample_interval == 0:
+            sample_images(epoch)
+            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
+
         
         # Copy model folder to drive
         if opt.save_model and os.path.abspath(opt.session_folder) != os.path.abspath(base_folder):
