@@ -2,6 +2,8 @@ import random
 import time
 import datetime
 import sys
+import os
+import shutil
 
 from torch.autograd import Variable
 import torch
@@ -42,3 +44,18 @@ class LambdaLR:
 
     def step(self, epoch):
         return 1.0 - max(0, epoch + self.offset - self.decay_start_epoch) / (self.n_epochs - self.decay_start_epoch)
+
+def copy_missing(src, dst):
+    os.makedirs(dst, exist_ok=True)
+
+    for root, _, files in os.walk(src):
+        rel = os.path.relpath(root, src)
+        dst_root = dst if rel == "." else os.path.join(dst, rel)
+        os.makedirs(dst_root, exist_ok=True)
+
+        for f in files:
+            src_file = os.path.join(root, f)
+            dst_file = os.path.join(dst_root, f)
+
+            if not os.path.exists(dst_file):
+                shutil.copy2(src_file, dst_file)

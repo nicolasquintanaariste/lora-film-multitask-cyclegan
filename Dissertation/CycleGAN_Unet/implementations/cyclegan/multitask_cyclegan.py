@@ -527,6 +527,10 @@ def main():
                 sample_images(batches_done)
                 plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=5000, show=False)
                 
+            # Copy model folder to drive
+            if opt.save_model and opt.session_folder != base_folder:
+                destination = os.path.join(base_folder, "saved_models", task_name + suffix)
+                copy_missing(model_folder, destination)            
 
         # Update learning rates
         lr_scheduler_G.step()
@@ -573,10 +577,6 @@ def main():
     torch.save(G_BA.state_dict(), os.path.join(model_folder, "G_BA_final.pth"))
     torch.save(D_A.state_dict(), os.path.join(model_folder, "D_A_final.pth"))
     torch.save(D_B.state_dict(), os.path.join(model_folder, "D_B_final.pth"))
-    
-    if opt.save_model and opt.session != base_folder:
-        destination = os.path.join(base_folder, "saved_models", task_name + suffix)
-        shutil.copytree(model_folder, destination, dirs_exist_ok=True)
 
     if opt.lora:
         lora_state_dict = {name: param.detach().cpu()
