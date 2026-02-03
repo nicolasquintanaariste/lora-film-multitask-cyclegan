@@ -5,13 +5,13 @@
       "name": "Debug multitask_cyclegan (LoRA)",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/Dissertation/CycleGAN_Unet/implementations/cyclegan/multitask_cyclegan.py",
+      "program": "${workspaceFolder}/Dissertation/CycleGAN_Unet_FiLM/implementations/cyclegan/FiLM_multitask_cyclegan.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
-        "--tasks", "day2night",
-        "--session_folder", "test",
+        "--tasks", "day2night", "horse2zebra", "summer2winter_yosemite",
+        //"--session_folder", "test",
         "--save_model"
         //"--img_height", "512",
         //"--img_width", "512",
