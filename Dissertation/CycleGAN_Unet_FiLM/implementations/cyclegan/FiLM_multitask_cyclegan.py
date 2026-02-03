@@ -41,7 +41,7 @@ warnings.filterwarnings(
 def main():
 
     # Base folder
-    base_folder = os.path.join("Dissertation", "CycleGAN_Unet")
+    base_folder = os.path.join("Dissertation", "CycleGAN_Unet_FiLM")
     data_root = os.path.join("Dissertation", "data")
 
     start_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
