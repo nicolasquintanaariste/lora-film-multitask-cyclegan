@@ -553,12 +553,12 @@ def main():
             metric_logger.log(epoch=epoch + 1, fid=fid, kid=kid)
             plot_fid(
                 metric_logger,
-                out_path=os.path.join(local_model_folder, f"fid_{task}.png"),
+                out_path=os.path.join(local_model_folder, f"fid_{fid_task}.png"),
                 show=False
             )
             plot_kid(
                 metric_logger,
-                out_path=os.path.join(local_model_folder, f"kid_{task}.png"),
+                out_path=os.path.join(local_model_folder, f"kid_{fid_task}.png"),
                 show=False
             )
         
