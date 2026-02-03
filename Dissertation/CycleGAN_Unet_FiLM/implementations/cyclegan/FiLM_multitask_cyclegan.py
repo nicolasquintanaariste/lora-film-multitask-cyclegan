@@ -59,7 +59,7 @@ def main():
     parser.add_argument("--lr", type=float, default=0.0002, help="adam: learning rate")
     parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
     parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--decay_epoch", type=int, default=100, help="epoch from which to start lr decay")
+    parser.add_argument("--decay_epoch", type=int, default=1, help="epoch from which to start lr decay")
     parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
     parser.add_argument("--img_height", type=int, default=64, help="size of image height")
     parser.add_argument("--img_width", type=int, default=64, help="size of image width")
@@ -593,16 +593,16 @@ def main():
     # -----------------------------
     # Save final model with timestamp
     # -----------------------------
-    torch.save(G_AB.state_dict(), os.path.join(session_model_folder, "G_AB_final.pth"))
-    torch.save(G_BA.state_dict(), os.path.join(session_model_folder, "G_BA_final.pth"))
-    torch.save(D_A.state_dict(), os.path.join(session_model_folder, "D_A_final.pth"))
-    torch.save(D_B.state_dict(), os.path.join(session_model_folder, "D_B_final.pth"))
+    torch.save(G_AB.state_dict(), os.path.join(local_model_folder, "G_AB_final.pth"))
+    torch.save(G_BA.state_dict(), os.path.join(local_model_folder, "G_BA_final.pth"))
+    torch.save(D_A.state_dict(), os.path.join(local_model_folder, "D_A_final.pth"))
+    torch.save(D_B.state_dict(), os.path.join(local_model_folder, "D_B_final.pth"))
 
     if opt.lora:
         lora_state_dict = {name: param.detach().cpu()
                         for name, param in G_AB.named_parameters()
                         if param.requires_grad}
-        torch.save(lora_state_dict, os.path.join(session_model_folder, "G_AB_lora.pth"))
+        torch.save(lora_state_dict, os.path.join(local_model_folder, "G_AB_lora.pth"))
         
         print("LoRA keys sample:", [k for k in G_AB.state_dict().keys() if "lora" in k.lower()][:10])
 
