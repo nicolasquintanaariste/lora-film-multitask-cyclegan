@@ -23,6 +23,7 @@ from utils import *
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import gc
 
 from loss_utils import LossLogger, plot_losses
 from metrics_utils import MetricLogger, plot_fid, plot_kid, compute_fid_kid, fid_save_real
@@ -64,6 +65,7 @@ def main():
     parser.add_argument("--img_width", type=int, default=64, help="size of image width")
     parser.add_argument("--channels", type=int, default=3, help="number of image channels")
     parser.add_argument("--sample_interval", type=int, default=500, help="interval between saving generator outputs")
+    parser.add_argument("--fid_interval", type=int, default=1, help="interval between fid calculation")
     parser.add_argument("--checkpoint_interval", type=int, default=5, help="interval between saving model checkpoints")
     parser.add_argument("--n_residual_blocks", type=int, default=3, help="number of residual blocks in generator")
     parser.add_argument("--lambda_cyc", type=float, default=10.0, help="cycle loss weight")
@@ -308,8 +310,9 @@ def main():
         
         real_A = Variable(imgs["A"].type(Tensor))
         real_B = Variable(imgs["B"].type(Tensor))
-        fake_B = G_AB(real_A)
-        fake_A = G_BA(real_B)
+        with torch.no_grad():
+            fake_B = G_AB(real_A)
+            fake_A = G_BA(real_B)
             
         return fake_A, fake_B, real_A, real_B
         
@@ -347,7 +350,9 @@ def main():
             mode="test"
         )
         fid_loader = DataLoader(fid_dataset, batch_size=fid_max_imgs, shuffle=True, num_workers=0)
-                
+           
+        gc.collect()
+        torch.cuda.empty_cache()     
         fake_A, fake_B, real_A, real_B = infer(fid_loader)
         
         epoch_dir_A = os.path.join(fid_image_dir_A, f"epoch{epoch:03d}")
@@ -540,21 +545,22 @@ def main():
         clear_output(wait=True)
         
         # Plot FID
-        fid_inference(epoch)
-        fake_dir = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
-        fid, kid = compute_fid_kid(real_dir, fake_dir)
+        if epoch % opt.fid_interval == 0:
+            fid_inference(epoch)
+            fake_dir = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
+            fid, kid = compute_fid_kid(real_dir, fake_dir)
 
-        metric_logger.log(epoch=epoch + 1, fid=fid, kid=kid)
-        plot_fid(
-            metric_logger,
-            out_path=os.path.join(local_model_folder, f"fid_{task}.png"),
-            show=False
-        )
-        plot_kid(
-            metric_logger,
-            out_path=os.path.join(local_model_folder, f"kid_{task}.png"),
-            show=False
-        )
+            metric_logger.log(epoch=epoch + 1, fid=fid, kid=kid)
+            plot_fid(
+                metric_logger,
+                out_path=os.path.join(local_model_folder, f"fid_{task}.png"),
+                show=False
+            )
+            plot_kid(
+                metric_logger,
+                out_path=os.path.join(local_model_folder, f"kid_{task}.png"),
+                show=False
+            )
         
         # Generate samples and plot losses
         if epoch % opt.sample_interval == 0:
