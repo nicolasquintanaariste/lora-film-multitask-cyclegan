@@ -232,6 +232,11 @@ def main():
         G_AB = apply_lora_to_unet(G_AB, rank=4, alpha=1.0)
         G_BA = apply_lora_to_unet(G_BA, rank=4, alpha=1.0)
         
+        # Move LoRA parameters to CUDA if needed
+        if cuda:
+            G_AB = G_AB.cuda()
+            G_BA = G_BA.cuda()
+        
         lora_report(G_AB, "G_AB")
         lora_report(G_BA, "G_BA")
     else:
