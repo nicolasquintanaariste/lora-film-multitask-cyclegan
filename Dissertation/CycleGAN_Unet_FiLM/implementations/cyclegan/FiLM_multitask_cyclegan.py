@@ -195,11 +195,8 @@ def main():
         return float(np.mean(grads)) if grads else 0.0
     
     # Task ids for FiLM task conditioning
-    # When doing LoRA, initialize with all pretrained tasks to preserve multi-task knowledge
-    # but only train on the specified LoRA tasks
-    tasks_for_model = opt.tasks if opt.lora is None else ["day2night", "horse2zebra", "summer2winter_yosemite", "monet2photo"]
-    task2id = {t: i for i, t in enumerate(tasks_for_model)}
-    num_tasks = len(tasks_for_model)
+    task2id = {t: i for i, t in enumerate(opt.tasks)}
+    num_tasks = len(opt.tasks)
 
     G_AB = GeneratorUNet(input_shape, num_tasks=num_tasks, film_emb_dim=64)
     G_BA = GeneratorUNet(input_shape, num_tasks=num_tasks, film_emb_dim=64)
