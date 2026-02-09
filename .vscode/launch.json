@@ -12,11 +12,11 @@
       "args": [
         "--tasks", "day2night", "horse2zebra", "summer2winter_yosemite",
         //"--session_folder", "test",
-        "--save_model"
+        "--save_model",
         //"--img_height", "512",
         //"--img_width", "512",
-        //"--lora",
-        //"--pretrained_model", "saved_models/day2night-horse2zebra-summer2winter_yosemite-monet2photo/model_20260128_131022"
+        "--lora", "day2night",
+        "--pretrained_model", "saved_models/day2night-horse2zebra-summer2winter_yosemite-monet2photo/model_20260203_222518"
       ]
     }
   ]

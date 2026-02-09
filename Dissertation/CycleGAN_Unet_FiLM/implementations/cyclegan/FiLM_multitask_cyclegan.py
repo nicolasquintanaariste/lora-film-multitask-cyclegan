@@ -90,7 +90,12 @@ def main():
         default=None,
         help="checkpoint to start training from. i.e saved_checkpoint/day2night"
     )
-    parser.add_argument("--lora", action="store_true", help="fine tune using LoRA adapters")
+    parser.add_argument(
+        "--lora",
+        nargs="+",
+        default=None,
+        help="fine tune using LoRA adapters on specified tasks. e.g. --lora day2night"
+    )
     parser.add_argument(
         "--pretrained_model",
         type=str,
@@ -101,8 +106,9 @@ def main():
     opt = parser.parse_args()
 
     # Create directories
-    task_name = "-".join(opt.tasks)
-    suffix = "_lora" if opt.lora else ""
+    training_tasks = opt.lora if opt.lora is not None else opt.tasks
+    task_name = "-".join(training_tasks)
+    suffix = "_lora" if opt.lora is not None else ""
 
     local_model_folder = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time}")
     os.makedirs(local_model_folder, exist_ok=True)
@@ -145,10 +151,10 @@ def main():
     ]
     
     # Metric plots
-    real_dir = os.path.join(opt.data_folder, opt.tasks[0], "test", "B_normalised")
+    real_dir = os.path.join(opt.data_folder, training_tasks[0], "test", "B_normalised")
     
     fid_save_real(
-        in_dir=os.path.join(opt.data_folder, opt.tasks[0]),
+        in_dir=os.path.join(opt.data_folder, training_tasks[0]),
         out_dir=real_dir,
         transforms_=transforms_,
         max_images=250,
@@ -158,7 +164,7 @@ def main():
     
     fidkid_csv = os.path.join(local_model_folder, "fid_kid_log.csv")
     fidkid_plot_path = os.path.join(local_model_folder, "fid_kid_epoch.png")
-    fid_task = opt.tasks[0]  # only the first task
+    fid_task = training_tasks[0]  # only the first training task
     metric_logger = MetricLogger(csv_path=os.path.join(local_model_folder, "fid_kid.csv"))
 
     # Loss plots
@@ -189,8 +195,11 @@ def main():
         return float(np.mean(grads)) if grads else 0.0
     
     # Task ids for FiLM task conditioning
-    task2id = {t: i for i, t in enumerate(opt.tasks)}
-    num_tasks = len(opt.tasks)
+    # When doing LoRA, initialize with all pretrained tasks to preserve multi-task knowledge
+    # but only train on the specified LoRA tasks
+    tasks_for_model = opt.tasks if opt.lora is None else ["day2night", "horse2zebra", "summer2winter_yosemite", "monet2photo"]
+    task2id = {t: i for i, t in enumerate(tasks_for_model)}
+    num_tasks = len(tasks_for_model)
 
     G_AB = GeneratorUNet(input_shape, num_tasks=num_tasks, film_emb_dim=64)
     G_BA = GeneratorUNet(input_shape, num_tasks=num_tasks, film_emb_dim=64)
@@ -269,7 +278,7 @@ def main():
     task_loaders = {}
     task_iters = {}
 
-    for task in opt.tasks:
+    for task in training_tasks:
         print(f"Retreiving data from: {os.path.join(opt.data_folder, task)}")
         print(os.listdir(os.path.join(opt.data_folder, task)))
         
@@ -293,7 +302,7 @@ def main():
 
     # Test data loader
     val_loaders = {}
-    for task in opt.tasks:
+    for task in training_tasks:
         val_dataset = ImageDataset(
             root=os.path.join(opt.data_folder, task),
             transforms_=transforms_,
@@ -389,7 +398,7 @@ def main():
     for epoch in range(opt.epoch, opt.n_epochs):
         steps_per_epoch = max(len(loader) for loader in task_loaders.values())
 
-        balanced_tasks = opt.tasks * (steps_per_epoch // len(opt.tasks) + 1)
+        balanced_tasks = training_tasks * (steps_per_epoch // len(training_tasks) + 1)
         balanced_tasks = balanced_tasks[:steps_per_epoch]  # trim to exact steps
         random.shuffle(balanced_tasks)  # shuffle order within epoch
 
