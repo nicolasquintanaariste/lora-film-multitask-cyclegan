@@ -52,7 +52,7 @@ def main():
     parser.add_argument(
         "--tasks", 
         nargs="+",
-        default=["day2night", "horse2zebra", "summer2winter_yosemite", "monet2photo"],
+        default=["day2night", "horse2zebra", "summer2winter_yosemite"],
         help="List of tasks/datasets to train on (space-separated)",
     )
     parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
@@ -65,7 +65,7 @@ def main():
     parser.add_argument("--img_width", type=int, default=64, help="size of image width")
     parser.add_argument("--channels", type=int, default=3, help="number of image channels")
     parser.add_argument("--sample_interval", type=int, default=500, help="interval between saving generator outputs")
-    parser.add_argument("--fid_interval", type=int, default=1, help="interval between fid calculation")
+    parser.add_argument("--fid_interval", type=int, default=3, help="interval between fid calculation")
     parser.add_argument("--checkpoint_interval", type=int, default=5, help="interval between saving model checkpoints")
     parser.add_argument("--n_residual_blocks", type=int, default=3, help="number of residual blocks in generator")
     parser.add_argument("--lambda_cyc", type=float, default=5.0, help="cycle loss weight")
@@ -129,6 +129,9 @@ def main():
 
     checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", task_name + suffix)
     os.makedirs(checkpoint_folder, exist_ok=True)
+    
+    # Save hyperparameters
+    save_hyperparameters(opt, session_model_folder)
 
     # Losses
     criterion_GAN = torch.nn.MSELoss()

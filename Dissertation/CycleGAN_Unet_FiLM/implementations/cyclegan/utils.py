@@ -4,6 +4,7 @@ import datetime
 import sys
 import os
 import shutil
+import json
 
 from torch.autograd import Variable
 import torch
@@ -59,3 +60,10 @@ def copy_missing(src, dst):
 
             if not os.path.exists(dst_file):
                 shutil.copy2(src_file, dst_file)
+
+
+def save_hyperparameters(opt, save_path):
+    """Save hyperparameters to JSON file."""
+    with open(f"{save_path}/hyperparams.json", 'w') as f:
+        json.dump(vars(opt), f, indent=4)
+

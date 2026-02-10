@@ -18,6 +18,7 @@ data/
 /__pycache__/
 __pycache__/
 *.pyc
+*.pth
 
 /images/day2night/
 
