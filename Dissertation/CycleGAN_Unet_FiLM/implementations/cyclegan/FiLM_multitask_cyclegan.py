@@ -66,7 +66,7 @@ def main():
     parser.add_argument("--channels", type=int, default=3, help="number of image channels")
     parser.add_argument("--sample_interval", type=int, default=500, help="interval between saving generator outputs")
     parser.add_argument("--fid_interval", type=int, default=3, help="interval between fid calculation")
-    parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model checkpoints")
+    parser.add_argument("--checkpoint_interval", type=int, default=5, help="interval between saving model checkpoints")
     parser.add_argument("--n_residual_blocks", type=int, default=3, help="number of residual blocks in generator")
     parser.add_argument("--lambda_cyc", type=float, default=5.0, help="cycle loss weight")
     parser.add_argument("--lambda_id", type=float, default=0.01, help="identity loss weight")
@@ -229,8 +229,8 @@ def main():
     elif opt.lora:
         # Fine tune frozen network with loRA
         pretrained_path = f"{base_folder}/{opt.pretrained_model}"
-        G_AB.load_state_dict(torch.load(pretrained_path + "/G_AB_final.pth"))
-        G_BA.load_state_dict(torch.load(pretrained_path + "/G_BA_final.pth"))
+        G_AB.load_state_dict(torch.load(pretrained_path + "/final_model/G_AB_final.pth"))
+        G_BA.load_state_dict(torch.load(pretrained_path + "/final_model/G_BA_final.pth"))
         
         G_AB = apply_lora_to_unet(G_AB, rank=4, alpha=1.0)
         G_BA = apply_lora_to_unet(G_BA, rank=4, alpha=1.0)
@@ -607,10 +607,13 @@ def main():
     # -----------------------------
     # Save final model with timestamp
     # -----------------------------
-    torch.save(G_AB.state_dict(), os.path.join(local_model_folder, "G_AB_final.pth"))
-    torch.save(G_BA.state_dict(), os.path.join(local_model_folder, "G_BA_final.pth"))
-    torch.save(D_A.state_dict(), os.path.join(local_model_folder, "D_A_final.pth"))
-    torch.save(D_B.state_dict(), os.path.join(local_model_folder, "D_B_final.pth"))
+    final_dir = os.path.join(local_model_folder, "final_model")
+    os.makedirs(final_dir, exist_ok=True)
+
+    torch.save(G_AB.state_dict(), os.path.join(final_dir, "G_AB_final.pth"))
+    torch.save(G_BA.state_dict(), os.path.join(final_dir, "G_BA_final.pth"))
+    torch.save(D_A.state_dict(), os.path.join(final_dir, "D_A_final.pth"))
+    torch.save(D_B.state_dict(), os.path.join(final_dir, "D_B_final.pth"))
 
     if opt.lora:
         lora_state_dict = {name: param.detach().cpu()
