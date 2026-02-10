@@ -44,8 +44,6 @@ def main():
     base_folder = os.path.join("Dissertation", "CycleGAN_Unet_FiLM")
     data_root = os.path.join("Dissertation", "data")
 
-    start_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-
     # Input parameters
     parser = argparse.ArgumentParser()
     parser.add_argument("--n_epochs", type=int, default=4, help="number of epochs of training")
@@ -104,16 +102,21 @@ def main():
     )
 
     opt = parser.parse_args()
+    
+    # Start time
+    start_time = datetime.datetime.now()
+    timer = PhaseTimer(use_cuda_sync=True)
 
     # Create directories
     training_tasks = opt.lora if opt.lora is not None else opt.tasks
     task_name = "-".join(training_tasks)
     suffix = "_lora" if opt.lora is not None else ""
 
-    local_model_folder = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time}")
+    start_time_str = start_time.strftime("%Y%m%d_%H%M%S")
+    local_model_folder = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time_str}")
     os.makedirs(local_model_folder, exist_ok=True)
 
-    session_model_folder = os.path.join(opt.session_folder, "saved_models", task_name + suffix, f"model_{start_time}")
+    session_model_folder = os.path.join(opt.session_folder, "saved_models", task_name + suffix, f"model_{start_time_str}")
     os.makedirs(session_model_folder, exist_ok=True)
 
     image_folder = os.path.join(session_model_folder, "images")
@@ -156,14 +159,15 @@ def main():
     # Metric plots
     real_dir = os.path.join(opt.data_folder, training_tasks[0], "test", "B_normalised")
     
-    fid_save_real(
-        in_dir=os.path.join(opt.data_folder, training_tasks[0]),
-        out_dir=real_dir,
-        transforms_=transforms_,
-        max_images=250,
-        batch_size=opt.batch_size,
-        n_cpu=opt.n_cpu
-    )
+    with timer.track("prep/fid_save_real"):
+        fid_save_real(
+            in_dir=os.path.join(opt.data_folder, training_tasks[0]),
+            out_dir=real_dir,
+            transforms_=transforms_,
+            max_images=250,
+            batch_size=opt.batch_size,
+            n_cpu=opt.n_cpu
+        )
     
     fidkid_csv = os.path.join(local_model_folder, "fid_kid_log.csv")
     fidkid_plot_path = os.path.join(local_model_folder, "fid_kid_epoch.png")
@@ -209,6 +213,13 @@ def main():
 
     print("Generator parameters (G_AB, G_BA, G_AB + G_BA):", count_parameters(G_AB), count_parameters(G_AB), count_parameters(G_AB) + count_parameters(G_BA))
     print("Discriminator parameters (D_A, D_B, D_A + D_B):", count_parameters(D_A), count_parameters(D_B), count_parameters(D_A) + count_parameters(D_B))
+
+    param_summary = {
+        "G_AB": int(count_parameters(G_AB)),
+        "G_BA": int(count_parameters(G_BA)),
+        "D_A":  int(count_parameters(D_A)),
+        "D_B":  int(count_parameters(D_B)),
+    }
 
     if cuda:
         G_AB = G_AB.cuda()
@@ -401,192 +412,197 @@ def main():
 
     prev_time = time.time()
     for epoch in range(opt.epoch, opt.n_epochs):
-        steps_per_epoch = max(len(loader) for loader in task_loaders.values())
+        with timer.track("train/epoch_total"):
+            steps_per_epoch = max(len(loader) for loader in task_loaders.values())
 
-        balanced_tasks = training_tasks * (steps_per_epoch // len(training_tasks) + 1)
-        balanced_tasks = balanced_tasks[:steps_per_epoch]  # trim to exact steps
-        random.shuffle(balanced_tasks)  # shuffle order within epoch
+            balanced_tasks = training_tasks * (steps_per_epoch // len(training_tasks) + 1)
+            balanced_tasks = balanced_tasks[:steps_per_epoch]  # trim to exact steps
+            random.shuffle(balanced_tasks)  # shuffle order within epoch
 
-        for step, task in enumerate(balanced_tasks):
-            batches_done = epoch * steps_per_epoch + step
-            batch = get_batch(task)
-            
-            # Set model input
-            real_A = Variable(batch["A"].type(Tensor))
-            real_B = Variable(batch["B"].type(Tensor))
-            
-            # Task id
-            tid = torch.tensor([task2id[task]], device=real_A.device, dtype=torch.long)
+            for step, task in enumerate(balanced_tasks):
+                batches_done = epoch * steps_per_epoch + step
+                batch = get_batch(task)
+                
+                # Set model input
+                real_A = Variable(batch["A"].type(Tensor))
+                real_B = Variable(batch["B"].type(Tensor))
+                
+                # Task id
+                tid = torch.tensor([task2id[task]], device=real_A.device, dtype=torch.long)
 
-            # Adversarial ground truths
-            valid = Variable(Tensor(np.ones((real_A.size(0), *D_A.output_shape))), requires_grad=False)
-            fake = Variable(Tensor(np.zeros((real_A.size(0), *D_A.output_shape))), requires_grad=False)
+                # Adversarial ground truths
+                valid = Variable(Tensor(np.ones((real_A.size(0), *D_A.output_shape))), requires_grad=False)
+                fake = Variable(Tensor(np.zeros((real_A.size(0), *D_A.output_shape))), requires_grad=False)
 
-            # ------------------
-            #  Train Generators
-            # ------------------
+                # ------------------
+                #  Train Generators
+                # ------------------
 
-            G_AB.train()
-            G_BA.train()
+                G_AB.train()
+                G_BA.train()
 
-            optimizer_G.zero_grad()
+                optimizer_G.zero_grad()
 
-            # Identity loss
-            loss_id_A = criterion_identity(G_BA(real_A, tid), real_A)
-            loss_id_B = criterion_identity(G_AB(real_B, tid), real_B)
+                # Identity loss
+                loss_id_A = criterion_identity(G_BA(real_A, tid), real_A)
+                loss_id_B = criterion_identity(G_AB(real_B, tid), real_B)
 
-            loss_identity = (loss_id_A + loss_id_B) / 2
+                loss_identity = (loss_id_A + loss_id_B) / 2
 
-            # GAN loss
-            fake_B = G_AB(real_A, tid)
-            loss_GAN_AB = criterion_GAN(D_B(fake_B, tid), valid)
-            fake_A = G_BA(real_B, tid)
-            loss_GAN_BA = criterion_GAN(D_A(fake_A, tid), valid)
+                # GAN loss
+                fake_B = G_AB(real_A, tid)
+                loss_GAN_AB = criterion_GAN(D_B(fake_B, tid), valid)
+                fake_A = G_BA(real_B, tid)
+                loss_GAN_BA = criterion_GAN(D_A(fake_A, tid), valid)
 
-            loss_GAN = (loss_GAN_AB + loss_GAN_BA) / 2
+                loss_GAN = (loss_GAN_AB + loss_GAN_BA) / 2
 
-            # Cycle loss
-            recov_A = G_BA(fake_B, tid)
-            loss_cycle_A = criterion_cycle(recov_A, real_A)
-            recov_B = G_AB(fake_A, tid)
-            loss_cycle_B = criterion_cycle(recov_B, real_B)
+                # Cycle loss
+                recov_A = G_BA(fake_B, tid)
+                loss_cycle_A = criterion_cycle(recov_A, real_A)
+                recov_B = G_AB(fake_A, tid)
+                loss_cycle_B = criterion_cycle(recov_B, real_B)
 
-            loss_cycle = (loss_cycle_A + loss_cycle_B) / 2
+                loss_cycle = (loss_cycle_A + loss_cycle_B) / 2
 
-            # Total loss
-            loss_G = loss_GAN + opt.lambda_cyc * loss_cycle + opt.lambda_id * loss_identity
+                # Total loss
+                loss_G = loss_GAN + opt.lambda_cyc * loss_cycle + opt.lambda_id * loss_identity
 
-            loss_G.backward()
-            
-            # LoRA learning check
-            if opt.lora and (batches_done % 2 == 0):
-                print(f" \n [LoRA] grad_mean AB={lora_grad_mean(G_AB):.2e} BA={lora_grad_mean(G_BA):.2e}")
-            
-            optimizer_G.step()
+                loss_G.backward()
+                
+                # LoRA learning check
+                if opt.lora and (batches_done % 2 == 0):
+                    print(f" \n [LoRA] grad_mean AB={lora_grad_mean(G_AB):.2e} BA={lora_grad_mean(G_BA):.2e}")
+                
+                optimizer_G.step()
 
-            # -----------------------
-            #  Train Discriminator A
-            # -----------------------
+                # -----------------------
+                #  Train Discriminator A
+                # -----------------------
 
-            optimizer_D_A.zero_grad()
+                optimizer_D_A.zero_grad()
 
-            # Real loss
-            loss_real = criterion_GAN(D_A(real_A, tid), valid)
-            # Fake loss (on batch of previously generated samples)
-            fake_A_ = fake_A_buffer.push_and_pop(fake_A)
-            loss_fake = criterion_GAN(D_A(fake_A_.detach(), tid), fake)
-            # Total loss
-            loss_D_A = (loss_real + loss_fake) / 2
+                # Real loss
+                loss_real = criterion_GAN(D_A(real_A, tid), valid)
+                # Fake loss (on batch of previously generated samples)
+                fake_A_ = fake_A_buffer.push_and_pop(fake_A)
+                loss_fake = criterion_GAN(D_A(fake_A_.detach(), tid), fake)
+                # Total loss
+                loss_D_A = (loss_real + loss_fake) / 2
 
-            loss_D_A.backward()
-            optimizer_D_A.step()
+                loss_D_A.backward()
+                optimizer_D_A.step()
 
-            # -----------------------
-            #  Train Discriminator B
-            # -----------------------
+                # -----------------------
+                #  Train Discriminator B
+                # -----------------------
 
-            optimizer_D_B.zero_grad()
+                optimizer_D_B.zero_grad()
 
-            # Real loss
-            loss_real = criterion_GAN(D_B(real_B, tid), valid)
-            # Fake loss (on batch of previously generated samples)
-            fake_B_ = fake_B_buffer.push_and_pop(fake_B)
-            loss_fake = criterion_GAN(D_B(fake_B_.detach(), tid), fake)
-            # Total loss
-            loss_D_B = (loss_real + loss_fake) / 2
+                # Real loss
+                loss_real = criterion_GAN(D_B(real_B, tid), valid)
+                # Fake loss (on batch of previously generated samples)
+                fake_B_ = fake_B_buffer.push_and_pop(fake_B)
+                loss_fake = criterion_GAN(D_B(fake_B_.detach(), tid), fake)
+                # Total loss
+                loss_D_B = (loss_real + loss_fake) / 2
 
-            loss_D_B.backward()
-            optimizer_D_B.step()
+                loss_D_B.backward()
+                optimizer_D_B.step()
 
-            loss_D = (loss_D_A + loss_D_B) / 2
+                loss_D = (loss_D_A + loss_D_B) / 2
 
-            # --------------
-            #  Log Progress
-            # --------------
+                # --------------
+                #  Log Progress
+                # --------------
 
-            # Determine approximate time left
-            batches_left = opt.n_epochs * steps_per_epoch - batches_done
-            time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
-            prev_time = time.time()
-            
-            # Graph log
-            with torch.no_grad():
-                dA_real_mean = D_A(real_A, tid).mean().item()
-                dA_fake_mean = D_A(fake_A.detach(), tid).mean().item()
-                dB_real_mean = D_B(real_B, tid).mean().item()
-                dB_fake_mean = D_B(fake_B.detach(), tid).mean().item()
+                # Determine approximate time left
+                batches_left = opt.n_epochs * steps_per_epoch - batches_done
+                time_left = datetime.timedelta(seconds=batches_left * (time.time() - prev_time))
+                prev_time = time.time()
+                
+                # Graph log
+                with torch.no_grad():
+                    dA_real_mean = D_A(real_A, tid).mean().item()
+                    dA_fake_mean = D_A(fake_A.detach(), tid).mean().item()
+                    dB_real_mean = D_B(real_B, tid).mean().item()
+                    dB_fake_mean = D_B(fake_B.detach(), tid).mean().item()
 
-            logger.log(
-                step=batches_done,
-                loss_G=loss_G.item(),
-                loss_GAN=loss_GAN.item(),
-                loss_cycle=loss_cycle.item(),
-                loss_identity=loss_identity.item(),
-                loss_D=loss_D.item(),
-                loss_D_A=loss_D_A.item(),
-                loss_D_B=loss_D_B.item(),
-                dA_real_mean=dA_real_mean,
-                dA_fake_mean=dA_fake_mean,
-                dB_real_mean=dB_real_mean,
-                dB_fake_mean=dB_fake_mean,
-            )           
+                logger.log(
+                    step=batches_done,
+                    loss_G=loss_G.item(),
+                    loss_GAN=loss_GAN.item(),
+                    loss_cycle=loss_cycle.item(),
+                    loss_identity=loss_identity.item(),
+                    loss_D=loss_D.item(),
+                    loss_D_A=loss_D_A.item(),
+                    loss_D_B=loss_D_B.item(),
+                    dA_real_mean=dA_real_mean,
+                    dA_fake_mean=dA_fake_mean,
+                    dB_real_mean=dB_real_mean,
+                    dB_fake_mean=dB_fake_mean,
+                )           
 
-            # Print log
-            sys.stdout.write(
-                "\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f, adv: %f, cycle: %f, identity: %f] ETA: %s"
-                % (
-                    epoch + 1,
-                    opt.n_epochs,
-                    step + 1,
-                    steps_per_epoch,
-                    loss_D.item(),
-                    loss_G.item(),
-                    loss_GAN.item(),
-                    loss_cycle.item(),
-                    loss_identity.item(),
-                    time_left,
+                # Print log
+                sys.stdout.write(
+                    "\r[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f, adv: %f, cycle: %f, identity: %f] ETA: %s"
+                    % (
+                        epoch + 1,
+                        opt.n_epochs,
+                        step + 1,
+                        steps_per_epoch,
+                        loss_D.item(),
+                        loss_G.item(),
+                        loss_GAN.item(),
+                        loss_cycle.item(),
+                        loss_identity.item(),
+                        time_left,
+                    )
                 )
-            )
 
-            # # If at sample interval save image
-            # if batches_done % opt.sample_interval == 0:
-            #     sample_images(batches_done)
-            #     plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
+                # # If at sample interval save image
+                # if batches_done % opt.sample_interval == 0:
+                #     sample_images(batches_done)
+                #     plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
 
-        # Update learning rates
-        lr_scheduler_G.step()
-        lr_scheduler_D_A.step()
-        lr_scheduler_D_B.step()
-        
+            # Update learning rates
+            lr_scheduler_G.step()
+            lr_scheduler_D_A.step()
+            lr_scheduler_D_B.step()
+            
         clear_output(wait=True)
-        
+            
         # Plot FID
         if epoch % opt.fid_interval == 0:
-            fid_inference(epoch)
-            fake_dir = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
-            fid, kid = compute_fid_kid(real_dir, fake_dir)
+            with timer.track("fid/compute"):
+                fid_inference(epoch)
+                    
+                fake_dir = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
+                
+                fid, kid = compute_fid_kid(real_dir, fake_dir)
 
-            metric_logger.log(epoch=epoch + 1, fid=fid, kid=kid)
-            plot_fid(
-                metric_logger,
-                out_path=os.path.join(local_model_folder, f"fid_{fid_task}.png"),
-                show=False
-            )
-            plot_kid(
-                metric_logger,
-                out_path=os.path.join(local_model_folder, f"kid_{fid_task}.png"),
-                show=False
-            )
+                metric_logger.log(epoch=epoch + 1, fid=fid, kid=kid)
+                plot_fid(
+                    metric_logger,
+                    out_path=os.path.join(local_model_folder, f"fid_{fid_task}.png"),
+                    show=False
+                )
+                plot_kid(
+                    metric_logger,
+                    out_path=os.path.join(local_model_folder, f"kid_{fid_task}.png"),
+                    show=False
+                )
         
         # Generate samples and plot losses
         if epoch % opt.sample_interval == 0:
-            sample_images(epoch)
-            plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
+            with timer.track("sample_images/compute"):
+                sample_images(epoch)
+                plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
 
         
         # Copy model folder to drive
         if opt.save_model and os.path.abspath(opt.session_folder) != os.path.abspath(base_folder):
-            destination = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time}")
+            destination = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time_str}")
             copy_missing(session_model_folder, destination)
 
         if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
@@ -622,6 +638,23 @@ def main():
         torch.save(lora_state_dict, os.path.join(local_model_folder, "G_AB_lora.pth"))
         
         print("LoRA keys sample:", [k for k in G_AB.state_dict().keys() if "lora" in k.lower()][:10])
+        
+    # Save training summmary
+    end_time = datetime.datetime.now()
+    summary = {
+        "run_started_at": start_time.isoformat(timespec="seconds"),
+        "run_ended_at": end_time.isoformat(timespec="seconds"),
+        "total_seconds": (end_time - start_time).total_seconds(),
+        "tasks": training_tasks,
+        "lora": opt.lora is not None,
+        "parameter_counts": param_summary,
+        "timings": timer.as_dict(),
+    }
+
+    save_run_summary(session_model_folder, summary)
+    # optional: also save next to local_model_folder
+    save_run_summary(local_model_folder, summary)
+
 
 if __name__ == "__main__":
     import multiprocessing as mp
