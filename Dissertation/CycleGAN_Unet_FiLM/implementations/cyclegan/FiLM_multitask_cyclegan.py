@@ -66,7 +66,7 @@ def main():
     parser.add_argument("--channels", type=int, default=3, help="number of image channels")
     parser.add_argument("--sample_interval", type=int, default=500, help="interval between saving generator outputs")
     parser.add_argument("--fid_interval", type=int, default=3, help="interval between fid calculation")
-    parser.add_argument("--checkpoint_interval", type=int, default=5, help="interval between saving model checkpoints")
+    parser.add_argument("--checkpoint_interval", type=int, default=1, help="interval between saving model checkpoints")
     parser.add_argument("--n_residual_blocks", type=int, default=3, help="number of residual blocks in generator")
     parser.add_argument("--lambda_cyc", type=float, default=5.0, help="cycle loss weight")
     parser.add_argument("--lambda_id", type=float, default=0.01, help="identity loss weight")
@@ -127,7 +127,7 @@ def main():
     os.makedirs(fid_image_dir_A, exist_ok=True)
     os.makedirs(fid_image_dir_B, exist_ok=True)
 
-    checkpoint_folder = os.path.join(base_folder, "saved_checkpoints", task_name + suffix)
+    checkpoint_folder = os.path.join(session_model_folder, "saved_checkpoints")
     os.makedirs(checkpoint_folder, exist_ok=True)
     
     # Save hyperparameters
