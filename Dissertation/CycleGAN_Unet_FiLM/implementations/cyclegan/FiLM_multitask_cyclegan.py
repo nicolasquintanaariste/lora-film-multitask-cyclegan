@@ -54,7 +54,8 @@ def main():
         help="List of tasks/datasets to train on (space-separated)",
     )
     parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
-    parser.add_argument("--lr", type=float, default=0.0002, help="adam: learning rate")
+    parser.add_argument("--lr_G", type=float, default=0.0002, help="generator learning rate")
+    parser.add_argument("--lr_D", type=float, default=0.00005, help="discriminator learning rate")
     parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
     parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
     parser.add_argument("--decay_epoch", type=int, default=1, help="epoch from which to start lr decay")
@@ -269,15 +270,15 @@ def main():
 
     # Optimizers
     optimizer_G = torch.optim.Adam(
-        itertools.chain(G_AB.parameters(), G_BA.parameters()), lr=opt.lr, betas=(opt.b1, opt.b2)
+        itertools.chain(G_AB.parameters(), G_BA.parameters()), lr=opt.lr_G, betas=(opt.b1, opt.b2)
     )
     if opt.lora:
         lora_params = [p for p in G_AB.parameters() if p.requires_grad] + \
                     [p for p in G_BA.parameters() if p.requires_grad]
-        optimizer_G = torch.optim.Adam(lora_params, lr=opt.lr, betas=(opt.b1, opt.b2))
+        optimizer_G = torch.optim.Adam(lora_params, lr=opt.lr_G, betas=(opt.b1, opt.b2))
         
-    optimizer_D_A = torch.optim.Adam(D_A.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
-    optimizer_D_B = torch.optim.Adam(D_B.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
+    optimizer_D_A = torch.optim.Adam(D_A.parameters(), lr=opt.lr_D, betas=(opt.b1, opt.b2))
+    optimizer_D_B = torch.optim.Adam(D_B.parameters(), lr=opt.lr_D, betas=(opt.b1, opt.b2))
 
     # Learning rate update schedulers
     lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(
