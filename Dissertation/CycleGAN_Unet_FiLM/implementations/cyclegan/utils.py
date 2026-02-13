@@ -111,3 +111,23 @@ def save_run_summary(save_path: str, summary: dict):
 
     with open(os.path.join(details_dir, "run_summary.json"), "w") as f:
         json.dump(summary, f, indent=4)
+        
+def seed_everything(seed=13):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+    # Deterministic behaviour
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # print(f"Seed set to {seed}")
+    
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)

@@ -12,7 +12,7 @@ import sys
 import torchvision.transforms as transforms
 from torchvision.utils import save_image, make_grid
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from torchvision import datasets
 from torch.autograd import Variable
 
@@ -100,12 +100,17 @@ def main():
         default=None,
         help="pretrained model to finetune lora from. i.e saved_models/day2night/model_20260128_122440"
     )
+    parser.add_argument("--seed", type=int, default=14, help="random seed")
+
 
     opt = parser.parse_args()
     
     # Start time
     start_time = datetime.datetime.now()
     timer = PhaseTimer(use_cuda_sync=True)
+    
+    # Seed everything
+    seed_everything(opt.seed)
 
     # Create directories
     training_tasks = opt.lora if opt.lora is not None else opt.tasks
@@ -149,8 +154,9 @@ def main():
 
     # Image transformations
     transforms_ = [
-        transforms.Resize(int(opt.img_height * 1.12), Image.BICUBIC),
+        # transforms.Resize(int(opt.img_height * 1.12), Image.BICUBIC), # x1.12 would make img bigger and crop edges
         transforms.RandomCrop((opt.img_height, opt.img_width)),
+        transforms.Resize((opt.img_height, opt.img_width), Image.BICUBIC),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
@@ -293,6 +299,10 @@ def main():
     # Training data loader
     task_loaders = {}
     task_iters = {}
+    
+    # Define generator for seeding
+    g = torch.Generator()
+    g.manual_seed(opt.seed)
 
     for task in training_tasks:
         print(f"Retreiving data from: {os.path.join(opt.data_folder, task)}")
@@ -310,7 +320,9 @@ def main():
             batch_size=opt.batch_size,
             shuffle=True,
             num_workers=opt.n_cpu,
-            drop_last=True
+            drop_last=True,
+            worker_init_fn=seed_worker,
+            generator=g
         )
 
         task_loaders[task] = loader
@@ -318,6 +330,9 @@ def main():
 
     # Test data loader
     val_loaders = {}
+    n_samples = 5
+    rng = np.random.default_rng(seed=42)
+    
     for task in training_tasks:
         val_dataset = ImageDataset(
             root=os.path.join(opt.data_folder, task),
@@ -325,7 +340,11 @@ def main():
             unaligned=True,
             mode="test"
         )
-        val_loaders[task] = DataLoader(val_dataset, batch_size=5, shuffle=True, num_workers=0)
+        # Choose the same sample everytime
+        indices = rng.choice(len(val_dataset), size=n_samples, replace=False)
+        fixed_subset = Subset(val_dataset, indices)
+        
+        val_loaders[task] = DataLoader(fixed_subset, batch_size=n_samples, shuffle=False, num_workers=0)
         
     def infer(loader, tid):
         G_AB.eval()
