@@ -62,7 +62,7 @@ def main():
     parser.add_argument("--img_height", type=int, default=64, help="size of image height")
     parser.add_argument("--img_width", type=int, default=64, help="size of image width")
     parser.add_argument("--channels", type=int, default=3, help="number of image channels")
-    parser.add_argument("--sample_interval", type=int, default=500, help="interval between saving generator outputs")
+    parser.add_argument("--sample_interval", type=int, default=1, help="interval between saving generator outputs")
     parser.add_argument("--fid_interval", type=int, default=3, help="interval between fid calculation")
     parser.add_argument("--checkpoint_interval", type=int, default=5, help="interval between saving model checkpoints")
     parser.add_argument("--n_residual_blocks", type=int, default=3, help="number of residual blocks in generator")
@@ -100,7 +100,7 @@ def main():
         default=None,
         help="pretrained model to finetune lora from. i.e saved_models/day2night/model_20260128_122440"
     )
-    parser.add_argument("--seed", type=int, default=14, help="random seed")
+    parser.add_argument("--seed", type=int, default=13, help="random seed")
 
 
     opt = parser.parse_args()
@@ -155,8 +155,8 @@ def main():
     # Image transformations
     transforms_ = [
         # transforms.Resize(int(opt.img_height * 1.12), Image.BICUBIC), # x1.12 would make img bigger and crop edges
-        transforms.RandomCrop((opt.img_height, opt.img_width)),
-        transforms.Resize((opt.img_height, opt.img_width), Image.BICUBIC),
+        transforms.Resize(opt.img_height),  # Resize shortest side to img_height, maintains aspect ratio
+        transforms.RandomCrop((opt.img_height, opt.img_width)),  # Now crop to square
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
@@ -328,24 +328,6 @@ def main():
         task_loaders[task] = loader
         task_iters[task] = iter(loader)
 
-    # Test data loader
-    val_loaders = {}
-    n_samples = 5
-    rng = np.random.default_rng(seed=42)
-    
-    for task in training_tasks:
-        val_dataset = ImageDataset(
-            root=os.path.join(opt.data_folder, task),
-            transforms_=transforms_,
-            unaligned=True,
-            mode="test"
-        )
-        # Choose the same sample everytime
-        indices = rng.choice(len(val_dataset), size=n_samples, replace=False)
-        fixed_subset = Subset(val_dataset, indices)
-        
-        val_loaders[task] = DataLoader(fixed_subset, batch_size=n_samples, shuffle=False, num_workers=0)
-        
     def infer(loader, tid):
         G_AB.eval()
         G_BA.eval()
@@ -365,8 +347,33 @@ def main():
             
         return fake_A, fake_B, real_A, real_B
         
-    def sample_images(batches_done):
+    def sample_images(batches_done, seed=None):
         """Saves a generated sample from the validation loaders for all tasks."""
+        # Test data loader
+        val_loaders = {}
+        n_samples = 5
+        rng = np.random.default_rng(seed=seed) 
+        
+        val_transforms_ = [
+            transforms.Resize(int(opt.img_height * 1.12)),  # Resize shortest side
+            transforms.CenterCrop((opt.img_height, opt.img_width)),  # Center crop to square (deterministic)
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ]
+        
+        for task in training_tasks:
+            val_dataset = ImageDataset(
+                root=os.path.join(opt.data_folder, task),
+                transforms_=val_transforms_,
+                unaligned=False if seed else True,
+                mode="test"
+            )
+            # Choose the same sample everytime
+            indices = rng.choice(len(val_dataset), size=n_samples, replace=False)
+            fixed_subset = Subset(val_dataset, indices)
+            
+            val_loaders[task] = DataLoader(fixed_subset, batch_size=n_samples, shuffle=False, num_workers=0)
+        
         G_AB.eval()
         G_BA.eval()
         
@@ -386,7 +393,7 @@ def main():
             # Save image with task name included
             save_image(
                 image_grid,
-                os.path.join(image_folder, f"{task}_{batches_done}.png"),
+                os.path.join(image_folder, f"{task}_{batches_done}_standard.png" if seed else f"{task}_{batches_done}.png"),
                 normalize=False
             )
             
@@ -616,6 +623,7 @@ def main():
         if epoch % opt.sample_interval == 0:
             with timer.track("sample_images/compute"):
                 sample_images(epoch)
+                sample_images(epoch, 42)
                 plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
 
         

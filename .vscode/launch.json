@@ -13,6 +13,7 @@
         "--tasks", "day2night", "horse2zebra", "summer2winter_yosemite",
         //"--session_folder", "test",
         "--save_model",
+        "--seed", "13",
         //"--img_height", "512",
         //"--img_width", "512",
         // "--lora", "day2night",
