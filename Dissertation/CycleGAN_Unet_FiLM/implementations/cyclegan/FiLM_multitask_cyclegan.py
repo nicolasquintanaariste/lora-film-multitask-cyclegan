@@ -10,7 +10,6 @@ import random
 import sys
 
 import torchvision.transforms as transforms
-from torchvision.utils import save_image, make_grid
 
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets
@@ -19,11 +18,12 @@ from torch.autograd import Variable
 from models import *
 from datasets import *
 from utils import *
+from save_utils import *
+from config import parse_args
 
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-import gc
 
 from loss_utils import LossLogger, plot_losses
 from metrics_utils import MetricLogger, plot_fid, plot_kid, compute_fid_kid, fid_save_real
@@ -44,67 +44,8 @@ def main():
     base_folder = os.path.join("Dissertation", "CycleGAN_Unet_FiLM")
     data_root = os.path.join("Dissertation", "data")
 
-    # Input parameters
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--n_epochs", type=int, default=4, help="number of epochs of training")
-    parser.add_argument(
-        "--tasks", 
-        nargs="+",
-        default=["day2night", "horse2zebra", "summer2winter_yosemite"],
-        help="List of tasks/datasets to train on (space-separated)",
-    )
-    parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
-    parser.add_argument("--lr_G", type=float, default=0.0002, help="generator learning rate")
-    parser.add_argument("--lr_D", type=float, default=0.00005, help="discriminator learning rate")
-    parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--b2", type=float, default=0.999, help="adam: decay of first order momentum of gradient")
-    parser.add_argument("--decay_epoch", type=int, default=1, help="epoch from which to start lr decay")
-    parser.add_argument("--n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
-    parser.add_argument("--img_height", type=int, default=64, help="size of image height")
-    parser.add_argument("--img_width", type=int, default=64, help="size of image width")
-    parser.add_argument("--channels", type=int, default=3, help="number of image channels")
-    parser.add_argument("--sample_interval", type=int, default=1, help="interval between saving generator outputs")
-    parser.add_argument("--fid_interval", type=int, default=3, help="interval between fid calculation")
-    parser.add_argument("--checkpoint_interval", type=int, default=5, help="interval between saving model checkpoints")
-    parser.add_argument("--n_residual_blocks", type=int, default=3, help="number of residual blocks in generator")
-    parser.add_argument("--lambda_cyc", type=float, default=5.0, help="cycle loss weight")
-    parser.add_argument("--lambda_id", type=float, default=0.01, help="identity loss weight")
-    parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
-    parser.add_argument(
-        "--data_folder",
-        type=str,
-        default=data_root,
-        help="folder from which the data is retreived from"
-    )
-    parser.add_argument(
-        "--session_folder",
-        type=str,
-        default=base_folder,
-        help="directory of colab session storage to save model data"
-    )
-    parser.add_argument("--save_model", action="store_true", help="save model data from colab session storage")
-    parser.add_argument(
-        "--checkpoint_model",
-        type=str,
-        default=None,
-        help="checkpoint to start training from. i.e saved_checkpoint/day2night"
-    )
-    parser.add_argument(
-        "--lora",
-        nargs="+",
-        default=None,
-        help="fine tune using LoRA adapters on specified tasks. e.g. --lora day2night"
-    )
-    parser.add_argument(
-        "--pretrained_model",
-        type=str,
-        default=None,
-        help="pretrained model to finetune lora from. i.e saved_models/day2night/model_20260128_122440"
-    )
-    parser.add_argument("--seed", type=int, default=13, help="random seed")
-
-
-    opt = parser.parse_args()
+    # Parse input parameters
+    opt = parse_args(base_folder, data_root)
     
     # Start time
     start_time = datetime.datetime.now()
@@ -329,103 +270,6 @@ def main():
         task_loaders[task] = loader
         task_iters[task] = iter(loader)
 
-    def infer(loader, tid):
-        G_AB.eval()
-        G_BA.eval()
-        
-        try:
-            imgs = next(iter(loader))
-        except StopIteration:
-            # Re-create iterator if exhausted
-            loader_iter = iter(loader)
-            imgs = next(loader_iter)
-        
-        real_A = Variable(imgs["A"].type(Tensor))
-        real_B = Variable(imgs["B"].type(Tensor))
-        with torch.no_grad():
-            fake_B = G_AB(real_A, tid)
-            fake_A = G_BA(real_B, tid)
-            
-        return fake_A, fake_B, real_A, real_B
-        
-    def sample_images(batches_done, seed=None):
-        """Saves a generated sample from the validation loaders for all tasks."""
-        # Test data loader
-        val_loaders = {}
-        n_samples = 5
-        
-        val_transforms_ = [
-            transforms.Resize(int(opt.img_height * 1.12)),  # Resize shortest side
-            transforms.CenterCrop((opt.img_height, opt.img_width)),  # Center crop to square (deterministic)
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ]
-        
-        for task in training_tasks:
-            val_dataset = ImageDataset(
-                root=os.path.join(opt.data_folder, task),
-                transforms_=val_transforms_,
-                unaligned=False if seed else True,
-                mode="test"
-            )
-            # Choose the same sample everytime
-            rng = np.random.default_rng(seed=seed) 
-            indices = rng.choice(len(val_dataset), size=n_samples, replace=False)
-            fixed_subset = Subset(val_dataset, indices)
-            
-            val_loaders[task] = DataLoader(fixed_subset, batch_size=n_samples, shuffle=False, num_workers=0)
-        
-        G_AB.eval()
-        G_BA.eval()
-        
-        for task, loader in val_loaders.items():
-            tid = torch.tensor([task2id[task]], device=next(G_AB.parameters()).device, dtype=torch.long)
-            fake_A, fake_B, real_A, real_B = infer(loader, tid)
-            
-            # Arrange images along x-axis
-            real_A_grid = make_grid(real_A, nrow=5, normalize=True)
-            fake_B_grid = make_grid(fake_B, nrow=5, normalize=True)
-            real_B_grid = make_grid(real_B, nrow=5, normalize=True)
-            fake_A_grid = make_grid(fake_A, nrow=5, normalize=True)
-            
-            # Arrange images along y-axis: [real_A | fake_B | real_B | fake_A]
-            image_grid = torch.cat((real_A_grid, fake_B_grid, real_B_grid, fake_A_grid), 1)
-            
-            # Save image with task name included
-            save_image(
-                image_grid,
-                os.path.join(image_folder, f"{task}_{batches_done}_standard.png" if seed else f"{task}_{batches_done}.png"),
-                normalize=False
-            )
-            
-    def fid_inference(epoch):
-        # FID data loader
-        fid_max_imgs = 250
-        fid_dataset = ImageDataset(
-            root=os.path.join(opt.data_folder, opt.tasks[0]),
-            transforms_=transforms_,
-            unaligned=True,
-            mode="test"
-        )
-        fid_loader = DataLoader(fid_dataset, batch_size=fid_max_imgs, shuffle=True, num_workers=0)
-           
-        gc.collect()
-        torch.cuda.empty_cache()
-        tid = torch.tensor([task2id[opt.tasks[0]]], device=next(G_AB.parameters()).device, dtype=torch.long)
-        fake_A, fake_B, real_A, real_B = infer(fid_loader, tid)
-        
-        epoch_dir_A = os.path.join(fid_image_dir_A, f"epoch{epoch:03d}")
-        epoch_dir_B = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
-        os.makedirs(epoch_dir_A, exist_ok=True)
-        os.makedirs(epoch_dir_B, exist_ok=True)
-
-        fake_A = (fake_A.detach().cpu() * 0.5 + 0.5)  # map [-1,1] -> [0,1]
-        fake_B = (fake_B.detach().cpu() * 0.5 + 0.5)
-
-        for i in range(fake_A.size(0)):
-            save_image(fake_A[i], os.path.join(epoch_dir_A, f"{i:04d}.png"), normalize=False)
-            save_image(fake_B[i], os.path.join(epoch_dir_B, f"{i:04d}.png"), normalize=False)      
-
     # ----------
     #  Training
     # ----------
@@ -602,7 +446,7 @@ def main():
         # Plot FID
         if epoch % opt.fid_interval == 0:
             with timer.track("fid/compute"):
-                fid_inference(epoch)
+                fid_inference(epoch, opt, transforms_, task2id, Tensor, G_AB, G_BA, fid_image_dir_A, fid_image_dir_B)
                     
                 fake_dir = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
                 
@@ -623,8 +467,8 @@ def main():
         # Generate samples and plot losses
         if epoch % opt.sample_interval == 0:
             with timer.track("sample_images/compute"):
-                sample_images(epoch)
-                sample_images(epoch, 42)
+                sample_images(epoch, opt, training_tasks, G_AB, G_BA, task2id, image_folder, Tensor)
+                sample_images(epoch, opt, training_tasks, G_AB, G_BA, task2id, image_folder, Tensor, 42)
                 plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
 
         
@@ -648,25 +492,10 @@ def main():
             
             print(f" Models saved → {checkpoint_folder}", flush=True)
 
-    # -----------------------------
-    # Save final model with timestamp
-    # -----------------------------
-    final_dir = os.path.join(local_model_folder, "final_model")
-    os.makedirs(final_dir, exist_ok=True)
-
-    torch.save(G_AB.state_dict(), os.path.join(final_dir, "G_AB_final.pth"))
-    torch.save(G_BA.state_dict(), os.path.join(final_dir, "G_BA_final.pth"))
-    torch.save(D_A.state_dict(), os.path.join(final_dir, "D_A_final.pth"))
-    torch.save(D_B.state_dict(), os.path.join(final_dir, "D_B_final.pth"))
-
-    if opt.lora:
-        lora_state_dict = {name: param.detach().cpu()
-                        for name, param in G_AB.named_parameters()
-                        if param.requires_grad}
-        torch.save(lora_state_dict, os.path.join(local_model_folder, "G_AB_lora.pth"))
-        
-        print("LoRA keys sample:", [k for k in G_AB.state_dict().keys() if "lora" in k.lower()][:10])
-        
+    # ----------------------------------
+    # Save final model and run summary
+    # ----------------------------------
+           
     # Save training summmary
     end_time = datetime.datetime.now()
     summary = {
@@ -679,10 +508,10 @@ def main():
         "timings": timer.as_dict(),
     }
 
-    save_run_summary(session_model_folder, summary)
-    # optional: also save next to local_model_folder
     save_run_summary(local_model_folder, summary)
-
+    # save_run_summary(session_model_folder, summary)
+    # optional: also save next to local_model_folder
+    save_final_models(local_model_folder, G_AB, G_BA, D_A, D_B, opt)
 
 if __name__ == "__main__":
     import multiprocessing as mp

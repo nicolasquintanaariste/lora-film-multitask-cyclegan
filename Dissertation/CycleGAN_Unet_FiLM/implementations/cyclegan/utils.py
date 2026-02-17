@@ -4,11 +4,17 @@ import datetime
 import sys
 import os
 import shutil
-import json
+import gc
 
 from torch.autograd import Variable
 import torch
 import numpy as np
+
+from torch.utils.data import DataLoader, Subset
+from torchvision.utils import save_image, make_grid
+from datasets import ImageDataset
+import torchvision.transforms as transforms
+from torch.autograd import Variable
 
 from contextlib import contextmanager
 
@@ -61,17 +67,6 @@ def copy_missing(src, dst):
             if not os.path.exists(dst_file):
                 shutil.copy2(src_file, dst_file)
 
-
-def save_hyperparameters(opt, save_path):
-    """Save hyperparameters to JSON file."""
-    details_dir = os.path.join(save_path, "details")
-    os.makedirs(details_dir, exist_ok=True)
-
-    out_path = os.path.join(details_dir, "hyperparams.json")
-    with open(out_path, "w") as f:
-        json.dump(vars(opt), f, indent=4)
-
-
 class PhaseTimer:
     def __init__(self, use_cuda_sync: bool = True):
         self.use_cuda_sync = use_cuda_sync
@@ -103,15 +98,7 @@ class PhaseTimer:
                 "avg_seconds": float(v / max(1, self.counts.get(k, 1))),
             }
         return out
-
-
-def save_run_summary(save_path: str, summary: dict):
-    details_dir = os.path.join(save_path, "details")
-    os.makedirs(details_dir, exist_ok=True)    
-
-    with open(os.path.join(details_dir, "run_summary.json"), "w") as f:
-        json.dump(summary, f, indent=4)
-        
+ 
 def seed_everything(seed=13):
     random.seed(seed)
     np.random.seed(seed)
@@ -131,3 +118,100 @@ def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
+
+def sample_images(epoch, opt, training_tasks, G_AB, G_BA, task2id, image_folder, Tensor, seed=None):
+    """Saves a generated sample from the validation loaders for all tasks."""
+    # Test data loader
+    val_loaders = {}
+    n_samples = 5
+    
+    val_transforms_ = [
+        transforms.Resize(int(opt.img_height * 1.12)),  # Resize shortest side
+        transforms.CenterCrop((opt.img_height, opt.img_width)),  # Center crop to square (deterministic)
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ]
+    
+    for task in training_tasks:
+        val_dataset = ImageDataset(
+            root=os.path.join(opt.data_folder, task),
+            transforms_=val_transforms_,
+            unaligned=False if seed else True,
+            mode="test"
+        )
+        # Choose the same sample everytime
+        rng = np.random.default_rng(seed=seed) 
+        indices = rng.choice(len(val_dataset), size=n_samples, replace=False)
+        fixed_subset = Subset(val_dataset, indices)
+        
+        val_loaders[task] = DataLoader(fixed_subset, batch_size=n_samples, shuffle=False, num_workers=0)
+    
+    G_AB.eval()
+    G_BA.eval()
+    
+    for task, loader in val_loaders.items():
+        tid = torch.tensor([task2id[task]], device=next(G_AB.parameters()).device, dtype=torch.long)
+        fake_A, fake_B, real_A, real_B = infer(loader, tid, G_AB, G_BA, Tensor)
+        
+        # Arrange images along x-axis
+        real_A_grid = make_grid(real_A, nrow=5, normalize=True)
+        fake_B_grid = make_grid(fake_B, nrow=5, normalize=True)
+        real_B_grid = make_grid(real_B, nrow=5, normalize=True)
+        fake_A_grid = make_grid(fake_A, nrow=5, normalize=True)
+        
+        # Arrange images along y-axis: [real_A | fake_B | real_B | fake_A]
+        image_grid = torch.cat((real_A_grid, fake_B_grid, real_B_grid, fake_A_grid), 1)
+        
+        # Save image with task name included
+        save_image(
+            image_grid,
+            os.path.join(image_folder, f"{task}_{epoch}_standard.png" if seed else f"{task}_{epoch}.png"),
+            normalize=False
+        )
+    
+def infer(loader, tid, G_AB, G_BA, Tensor):
+    G_AB.eval()
+    G_BA.eval()
+    
+    try:
+        imgs = next(iter(loader))
+    except StopIteration:
+        # Re-create iterator if exhausted
+        loader_iter = iter(loader)
+        imgs = next(loader_iter)
+    
+    real_A = Variable(imgs["A"].type(Tensor))
+    real_B = Variable(imgs["B"].type(Tensor))
+    with torch.no_grad():
+        fake_B = G_AB(real_A, tid)
+        fake_A = G_BA(real_B, tid)
+        
+    return fake_A, fake_B, real_A, real_B
+        
+def fid_inference(epoch, opt, transforms_, task2id, Tensor, G_AB, G_BA, fid_image_dir_A, fid_image_dir_B):
+    # FID data loader
+    fid_max_imgs = 250
+    fid_dataset = ImageDataset(
+        root=os.path.join(opt.data_folder, opt.tasks[0]),
+        transforms_=transforms_,
+        unaligned=True,
+        mode="test"
+    )
+    fid_loader = DataLoader(fid_dataset, batch_size=fid_max_imgs, shuffle=True, num_workers=0)
+        
+    gc.collect()
+    torch.cuda.empty_cache()
+    tid = torch.tensor([task2id[opt.tasks[0]]], device=next(G_AB.parameters()).device, dtype=torch.long)
+    fake_A, fake_B, real_A, real_B = infer(fid_loader, tid, G_AB, G_BA, Tensor)
+    
+    epoch_dir_A = os.path.join(fid_image_dir_A, f"epoch{epoch:03d}")
+    epoch_dir_B = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
+    os.makedirs(epoch_dir_A, exist_ok=True)
+    os.makedirs(epoch_dir_B, exist_ok=True)
+
+    fake_A = (fake_A.detach().cpu() * 0.5 + 0.5)  # map [-1,1] -> [0,1]
+    fake_B = (fake_B.detach().cpu() * 0.5 + 0.5)
+
+    for i in range(fake_A.size(0)):
+        save_image(fake_A[i], os.path.join(epoch_dir_A, f"{i:04d}.png"), normalize=False)
+        save_image(fake_B[i], os.path.join(epoch_dir_B, f"{i:04d}.png"), normalize=False)     
