@@ -353,7 +353,6 @@ def main():
         # Test data loader
         val_loaders = {}
         n_samples = 5
-        rng = np.random.default_rng(seed=seed) 
         
         val_transforms_ = [
             transforms.Resize(int(opt.img_height * 1.12)),  # Resize shortest side
@@ -370,6 +369,7 @@ def main():
                 mode="test"
             )
             # Choose the same sample everytime
+            rng = np.random.default_rng(seed=seed) 
             indices = rng.choice(len(val_dataset), size=n_samples, replace=False)
             fixed_subset = Subset(val_dataset, indices)
             
