@@ -476,21 +476,10 @@ def main():
         if opt.save_model and os.path.abspath(opt.session_folder) != os.path.abspath(base_folder):
             destination = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time_str}")
             copy_missing(session_model_folder, destination)
-
-        if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
-            # Remove previous checkpoints
-            for f in os.listdir(checkpoint_folder):
-                file_path = os.path.join(checkpoint_folder, f)
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
         
-            # Save model checkpoints
-            torch.save(G_AB.state_dict(), os.path.join(checkpoint_folder, f"G_AB_{epoch}.pth"))
-            torch.save(G_BA.state_dict(), os.path.join(checkpoint_folder, f"G_BA_{epoch}.pth"))
-            torch.save(D_A.state_dict(), os.path.join(checkpoint_folder, f"D_A_{epoch}.pth"))
-            torch.save(D_B.state_dict(), os.path.join(checkpoint_folder, f"D_B_{epoch}.pth"))
-            
-            print(f" Models saved → {checkpoint_folder}", flush=True)
+        # Save model checkpoints
+        if opt.checkpoint_interval != -1 and epoch % opt.checkpoint_interval == 0:
+            save_model_checkpoints(checkpoint_folder, epoch, G_AB, G_BA, D_A, D_B)
 
     # ----------------------------------
     # Save final model and run summary

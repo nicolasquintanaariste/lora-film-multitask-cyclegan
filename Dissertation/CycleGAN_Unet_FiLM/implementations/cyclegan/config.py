@@ -28,7 +28,7 @@ def get_parser(base_folder: str, data_root: str) -> argparse.ArgumentParser:
 
     parser.add_argument("--sample_interval", type=int, default=1)
     parser.add_argument("--fid_interval", type=int, default=3)
-    parser.add_argument("--checkpoint_interval", type=int, default=5)
+    parser.add_argument("--checkpoint_interval", type=int, default=2)
 
     parser.add_argument("--n_residual_blocks", type=int, default=3)
     parser.add_argument("--lambda_cyc", type=float, default=5.0)

@@ -37,3 +37,18 @@ def save_hyperparameters(opt, save_path):
     out_path = os.path.join(details_dir, "hyperparams.json")
     with open(out_path, "w") as f:
         json.dump(vars(opt), f, indent=4)
+        
+def save_model_checkpoints(checkpoint_folder, epoch, G_AB, G_BA, D_A, D_B):
+        # Remove previous checkpoints
+        for f in os.listdir(checkpoint_folder):
+            file_path = os.path.join(checkpoint_folder, f)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+                
+        # Save checkpoints
+        torch.save(G_AB.state_dict(), os.path.join(checkpoint_folder, f"G_AB_{epoch}.pth"))
+        torch.save(G_BA.state_dict(), os.path.join(checkpoint_folder, f"G_BA_{epoch}.pth"))
+        torch.save(D_A.state_dict(), os.path.join(checkpoint_folder, f"D_A_{epoch}.pth"))
+        torch.save(D_B.state_dict(), os.path.join(checkpoint_folder, f"D_B_{epoch}.pth"))
+        
+        print(f" Models saved → {checkpoint_folder}", flush=True)
