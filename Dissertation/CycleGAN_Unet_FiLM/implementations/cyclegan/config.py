@@ -63,6 +63,7 @@ def get_parser(base_folder: str, data_root: str) -> argparse.ArgumentParser:
         default=None,
         help="pretrained model to finetune lora from. i.e saved_models/day2night/model_20260128_122440"
     )
+    parser.add_argument("--seed", type=int, default=13)
 
     return parser
 
