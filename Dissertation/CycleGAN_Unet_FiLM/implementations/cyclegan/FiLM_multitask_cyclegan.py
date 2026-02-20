@@ -235,8 +235,8 @@ def main():
     Tensor = torch.cuda.FloatTensor if cuda else torch.Tensor
 
     # Buffers of previously generated samples
-    fake_A_buffer = ReplayBuffer()
-    fake_B_buffer = ReplayBuffer()
+    fake_A_buffers = {t: ReplayBuffer() for t in training_tasks}
+    fake_B_buffers = {t: ReplayBuffer() for t in training_tasks}
 
     # Training data loader
     task_loaders = {}
@@ -356,7 +356,7 @@ def main():
                 # Real loss
                 loss_real = criterion_GAN(D_A(real_A, tid), valid)
                 # Fake loss (on batch of previously generated samples)
-                fake_A_ = fake_A_buffer.push_and_pop(fake_A)
+                fake_A_ = fake_A_buffers[task].push_and_pop(fake_A)
                 loss_fake = criterion_GAN(D_A(fake_A_.detach(), tid), fake)
                 # Total loss
                 loss_D_A = (loss_real + loss_fake) / 2
@@ -373,7 +373,7 @@ def main():
                 # Real loss
                 loss_real = criterion_GAN(D_B(real_B, tid), valid)
                 # Fake loss (on batch of previously generated samples)
-                fake_B_ = fake_B_buffer.push_and_pop(fake_B)
+                fake_B_ = fake_B_buffers[task].push_and_pop(fake_B)
                 loss_fake = criterion_GAN(D_B(fake_B_.detach(), tid), fake)
                 # Total loss
                 loss_D_B = (loss_real + loss_fake) / 2
