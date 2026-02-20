@@ -19,6 +19,7 @@ from models import *
 from datasets import *
 from utils import *
 from save_utils import *
+from lora_film_utils import *
 from config import parse_args
 
 import torch.nn as nn
@@ -119,7 +120,7 @@ def main():
     
     fidkid_csv = os.path.join(local_model_folder, "fid_kid_log.csv")
     fidkid_plot_path = os.path.join(local_model_folder, "fid_kid_epoch.png")
-    fid_task = training_tasks[0]  # only the first training task
+    fid_task = opt.tasks[0] if not opt.lora else opt.lora[0]   # only the first training task
     metric_logger = MetricLogger(csv_path=os.path.join(local_model_folder, "fid_kid.csv"))
 
     # Loss plots
@@ -150,8 +151,18 @@ def main():
         return float(np.mean(grads)) if grads else 0.0
     
     # Task ids for FiLM task conditioning
-    task2id = {t: i for i, t in enumerate(opt.tasks)}
-    num_tasks = len(opt.tasks)
+    base_tasks = list(opt.tasks)
+    task2id = {t: i for i, t in enumerate(base_tasks)}
+
+    # Add a generic id for LoRA domains (monet2photo etc.)
+    if opt.lora:
+        generic_id = len(base_tasks)
+        num_tasks = len(base_tasks) + 1
+        task2id[training_tasks[0]] = generic_id
+    else:
+        generic_name = None
+        generic_id = None
+        num_tasks = len(base_tasks)
 
     G_AB = GeneratorUNet(input_shape, num_tasks=num_tasks, film_emb_dim=64)
     G_BA = GeneratorUNet(input_shape, num_tasks=num_tasks, film_emb_dim=64)
@@ -159,7 +170,7 @@ def main():
     D_A = Discriminator(input_shape, num_tasks=num_tasks, film_emb_dim=64)
     D_B = Discriminator(input_shape, num_tasks=num_tasks, film_emb_dim=64)
 
-    print("Generator parameters (G_AB, G_BA, G_AB + G_BA):", count_parameters(G_AB), count_parameters(G_AB), count_parameters(G_AB) + count_parameters(G_BA))
+    print("Generator parameters (G_AB, G_BA, G_AB + G_BA):", count_parameters(G_AB), count_parameters(G_BA), count_parameters(G_AB) + count_parameters(G_BA))
     print("Discriminator parameters (D_A, D_B, D_A + D_B):", count_parameters(D_A), count_parameters(D_B), count_parameters(D_A) + count_parameters(D_B))
 
     param_summary = {
@@ -188,11 +199,19 @@ def main():
     elif opt.lora:
         # Fine tune frozen network with loRA
         pretrained_path = f"{base_folder}/{opt.pretrained_model}"
-        G_AB.load_state_dict(torch.load(pretrained_path + "/final_model/G_AB_final.pth"))
-        G_BA.load_state_dict(torch.load(pretrained_path + "/final_model/G_BA_final.pth"))
+        load_state_skip_film_embeddings(G_AB, pretrained_path + "/final_model/G_AB_final.pth", map_location="cpu")
+        load_state_skip_film_embeddings(G_BA, pretrained_path + "/final_model/G_BA_final.pth", map_location="cpu")
         
+        init_generic_film_embeddings(G_AB, generic_id)
+        init_generic_film_embeddings(G_BA, generic_id)
+
+        # Apply LoRA
         G_AB = apply_lora_to_unet(G_AB, rank=4, alpha=1.0)
         G_BA = apply_lora_to_unet(G_BA, rank=4, alpha=1.0)
+
+        # Freeze everything except LoRA + FiLM
+        freeze_all_except_lora_and_film(G_AB, train_film_mlp=True)
+        freeze_all_except_lora_and_film(G_BA, train_film_mlp=True)
         
         # Move LoRA parameters to CUDA if needed
         if cuda:
@@ -202,7 +221,7 @@ def main():
         lora_report(G_AB, "G_AB")
         lora_report(G_BA, "G_BA")
     else:
-        # Initialize weights
+        # Initialize normalised weights
         G_AB.apply(weights_init_normal)
         G_BA.apply(weights_init_normal)
         D_A.apply(weights_init_normal)
@@ -299,7 +318,10 @@ def main():
                 real_B = Variable(batch["B"].type(Tensor))
                 
                 # Task id
-                tid = torch.tensor([task2id[task]], device=real_A.device, dtype=torch.long)
+                if opt.lora:
+                    tid = torch.tensor([generic_id], device=real_A.device, dtype=torch.long)
+                else:
+                    tid = torch.tensor([task2id[task]], device=real_A.device, dtype=torch.long)
 
                 # Adversarial ground truths
                 valid = Variable(Tensor(np.ones((real_A.size(0), *D_A.output_shape))), requires_grad=False)
@@ -447,7 +469,7 @@ def main():
         if epoch % opt.fid_interval == 0:
             with timer.track("fid/compute"):
                 fid_inference(epoch, opt, transforms_, task2id, Tensor, G_AB, G_BA, fid_image_dir_A, fid_image_dir_B)
-                    
+
                 fake_dir = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
                 
                 fid, kid = compute_fid_kid(real_dir, fake_dir)

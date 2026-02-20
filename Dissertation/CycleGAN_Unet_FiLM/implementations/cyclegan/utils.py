@@ -190,9 +190,10 @@ def infer(loader, tid, G_AB, G_BA, Tensor):
         
 def fid_inference(epoch, opt, transforms_, task2id, Tensor, G_AB, G_BA, fid_image_dir_A, fid_image_dir_B):
     # FID data loader
+    fid_task = opt.tasks[0] if not opt.lora else opt.lora[0] 
     fid_max_imgs = 250
     fid_dataset = ImageDataset(
-        root=os.path.join(opt.data_folder, opt.tasks[0]),
+        root=os.path.join(opt.data_folder, fid_task),
         transforms_=transforms_,
         unaligned=True,
         mode="test"
@@ -201,7 +202,8 @@ def fid_inference(epoch, opt, transforms_, task2id, Tensor, G_AB, G_BA, fid_imag
         
     gc.collect()
     torch.cuda.empty_cache()
-    tid = torch.tensor([task2id[opt.tasks[0]]], device=next(G_AB.parameters()).device, dtype=torch.long)
+    
+    tid = torch.tensor([task2id[fid_task]], device=next(G_AB.parameters()).device, dtype=torch.long)
     fake_A, fake_B, real_A, real_B = infer(fid_loader, tid, G_AB, G_BA, Tensor)
     
     epoch_dir_A = os.path.join(fid_image_dir_A, f"epoch{epoch:03d}")

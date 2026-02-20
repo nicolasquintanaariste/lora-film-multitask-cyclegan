@@ -10,12 +10,16 @@
       "cwd": "${workspaceFolder}",
       "justMyCode": false,
       "args": [
+        "--lora", "monet2photo",
+        "--pretrained_model", "saved_models/day2night-horse2zebra-summer2winter_yosemite/model_20260220_162113",
         "--tasks", "day2night", "horse2zebra", "summer2winter_yosemite",
         //"--session_folder", "test",
         "--save_model",
         "--seed", "13",
-        //"--img_height", "512",
-        //"--img_width", "512",
+        "--img_height", "256",
+        "--img_width", "256",
+        "--fid_interval", "5",
+        "--n_epochs", "4"
         // "--lora", "day2night",
         // "--pretrained_model", "saved_models/day2night-horse2zebra-summer2winter_yosemite/model_20260209_102637"
       ]
