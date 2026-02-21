@@ -16,8 +16,8 @@
         //"--session_folder", "test",
         "--save_model",
         "--seed", "13",
-        "--img_height", "256",
-        "--img_width", "256",
+        "--img_height", "64",
+        "--img_width", "64",
         "--fid_interval", "5",
         "--n_epochs", "4"
         // "--lora", "day2night",

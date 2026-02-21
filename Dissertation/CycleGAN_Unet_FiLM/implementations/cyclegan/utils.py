@@ -217,3 +217,32 @@ def fid_inference(epoch, opt, transforms_, task2id, Tensor, G_AB, G_BA, fid_imag
     for i in range(fake_A.size(0)):
         save_image(fake_A[i], os.path.join(epoch_dir_A, f"{i:04d}.png"), normalize=False)
         save_image(fake_B[i], os.path.join(epoch_dir_B, f"{i:04d}.png"), normalize=False)     
+        
+        
+def inspect_trainable(model, name="model"):
+    total = 0
+    trainable = 0
+
+    lora = 0
+    film = 0
+    base = 0
+
+    for n, p in model.named_parameters():
+        total += p.numel()
+
+        if p.requires_grad:
+            trainable += p.numel()
+
+            if "lora_" in n.lower():
+                lora += p.numel()
+            elif "film" in n.lower() or "embed" in n.lower():
+                film += p.numel()
+            else:
+                base += p.numel()
+
+    print(f"\n[{name}]")
+    print(f"Total params:      {total:,}")
+    print(f"Trainable params:  {trainable:,}")
+    print(f"  LoRA params:     {lora:,}")
+    print(f"  FiLM params:     {film:,}")
+    print(f"  Base params:     {base:,}")

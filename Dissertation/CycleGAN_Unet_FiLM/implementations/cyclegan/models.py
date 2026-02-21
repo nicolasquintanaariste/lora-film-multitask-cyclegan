@@ -252,28 +252,19 @@ class LoRAConv2d(nn.Module):
         nn.init.zeros_(self.lora_B)
 
     def forward(self, x):
-        # Original convolution
-        out = self.conv(x)
+        W0 = self.conv.weight
+        b0 = self.conv.bias
 
-        # ---- LoRA update ----
-        # (out_ch, rank) @ (rank, in_ch*kH*kW)
-        delta_w = self.lora_B @ self.lora_A
+        delta_w = (self.lora_B @ self.lora_A).view_as(W0)
+        W = W0 + self.alpha * delta_w
 
-        # Reshape back to Conv2d kernel
-        delta_w = delta_w.view(self.conv.weight.shape)
-
-        # Apply delta convolution
-        out += self.alpha * F.conv2d(
-            x,
-            delta_w,
-            bias=None,
+        return F.conv2d(
+            x, W, bias=b0,
             stride=self.conv.stride,
             padding=self.conv.padding,
             dilation=self.conv.dilation,
             groups=self.conv.groups,
         )
-
-        return out
 
 
 def apply_lora_to_unet(unet_model, rank=4, alpha=1.0):

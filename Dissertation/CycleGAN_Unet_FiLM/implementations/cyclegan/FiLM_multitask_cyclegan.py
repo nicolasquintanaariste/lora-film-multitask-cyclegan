@@ -210,8 +210,13 @@ def main():
         G_BA = apply_lora_to_unet(G_BA, rank=4, alpha=1.0)
 
         # Freeze everything except LoRA + FiLM
-        freeze_all_except_lora_and_film(G_AB, train_film_mlp=True)
-        freeze_all_except_lora_and_film(G_BA, train_film_mlp=True)
+        freeze_all_except_lora_and_film(G_AB, train_film_mlp=False)
+        freeze_all_except_lora_and_film(G_BA, train_film_mlp=False)
+        
+        inspect_trainable(G_AB, "G_AB")
+        inspect_trainable(G_BA, "G_BA")
+        inspect_trainable(D_A, "D_A")
+        inspect_trainable(D_B, "D_B")
         
         # Move LoRA parameters to CUDA if needed
         if cuda:
@@ -282,6 +287,9 @@ def main():
             shuffle=True,
             num_workers=opt.n_cpu,
             drop_last=True,
+            pin_memory=cuda,
+            persistent_workers=(opt.n_cpu > 0),
+            prefetch_factor= 2 if opt.n_cpu > 0 else None,
             worker_init_fn=seed_worker,
             generator=g
         )
@@ -364,7 +372,7 @@ def main():
                 loss_G.backward()
                 
                 # LoRA learning check
-                if opt.lora and (batches_done % 2 == 0):
+                if opt.lora and (batches_done % 1000 == 0):
                     print(f" \n [LoRA] grad_mean AB={lora_grad_mean(G_AB):.2e} BA={lora_grad_mean(G_BA):.2e}")
                 
                 optimizer_G.step()
