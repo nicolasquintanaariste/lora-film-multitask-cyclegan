@@ -11,7 +11,8 @@
       "justMyCode": false,
       "args": [
         "--lora", "monet2photo",
-        "--pretrained_model", "saved_models/day2night-horse2zebra-summer2winter_yosemite/model_20260220_162113",
+        "--checkpoint_model", "saved_models/day2night-horse2zebra-summer2winter_yosemite/model_20260220_162113",
+        "--epoch", "0",
         "--tasks", "day2night", "horse2zebra", "summer2winter_yosemite",
         //"--session_folder", "test",
         "--save_model",

@@ -189,18 +189,24 @@ def main():
         criterion_cycle.cuda()
         criterion_identity.cuda()
 
-    if opt.checkpoint_model is not None:
+    if opt.checkpoint_model is not None and not opt.lora:
         print(f"Resuming training from epoch {opt.epoch}")
-        G_AB.load_state_dict(torch.load(os.path.join(opt.checkpoint_model, f"G_AB_{opt.epoch}.pth")))
-        G_BA.load_state_dict(torch.load(os.path.join(opt.checkpoint_model, f"G_BA_{opt.epoch}.pth")))
-        D_A.load_state_dict(torch.load(os.path.join(opt.checkpoint_model, f"D_A_{opt.epoch}.pth")))
-        D_B.load_state_dict(torch.load(os.path.join(opt.checkpoint_model, f"D_B_{opt.epoch}.pth")))
+        G_AB.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_AB_{opt.epoch}.pth"))
+        G_BA.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_BA_{opt.epoch}.pth"))
+        D_A.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/D_A_{opt.epoch}.pth"))
+        D_B.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/D_B_{opt.epoch}.pth"))
         
     elif opt.lora:
         # Fine tune frozen network with loRA
-        pretrained_path = f"{base_folder}/{opt.pretrained_model}"
-        load_state_skip_film_embeddings(G_AB, pretrained_path + "/final_model/G_AB_final.pth", map_location="cpu")
-        load_state_skip_film_embeddings(G_BA, pretrained_path + "/final_model/G_BA_final.pth", map_location="cpu")
+        if opt.pretrained_model:
+            pretrained_path_G_AB = f"{base_folder}/{opt.pretrained_model}/final_model/G_AB_final.pth"
+            pretrained_path_G_BA = f"{base_folder}/{opt.pretrained_model}/final_model/G_AB_final.pth"
+        elif opt.checkpoint_model:
+            pretrained_path_G_AB = f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_AB_{opt.epoch}.pth"
+            pretrained_path_G_BA = f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_BA_{opt.epoch}.pth"
+            
+        load_state_skip_film_embeddings(G_AB, pretrained_path_G_AB, map_location="cpu")
+        load_state_skip_film_embeddings(G_BA, pretrained_path_G_BA, map_location="cpu")
         
         init_generic_film_embeddings(G_AB, generic_id)
         init_generic_film_embeddings(G_BA, generic_id)

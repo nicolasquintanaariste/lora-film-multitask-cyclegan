@@ -49,7 +49,7 @@ def get_parser(base_folder: str, data_root: str) -> argparse.ArgumentParser:
         "--checkpoint_model",
         type=str,
         default=None,
-        help="checkpoint to start training from. i.e saved_checkpoint/day2night"
+        help="checkpoint to start training from. i.e saved_models/day2night-horse2zebra-summer2winter_yosemite/model_20260220_162113"
     )
     parser.add_argument(
         "--lora",
