@@ -188,18 +188,21 @@ def main():
         criterion_identity.cuda()
 
     if opt.checkpoint_model is not None and not opt.lora:
-        print(f"Resuming training from epoch {opt.epoch}")
+        print(f"Resuming from: {opt.checkpoint_model} (epoch {opt.epoch})")
         G_AB.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_AB_{opt.epoch}.pth"))
         G_BA.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_BA_{opt.epoch}.pth"))
         D_A.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/D_A_{opt.epoch}.pth"))
         D_B.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/D_B_{opt.epoch}.pth"))
-        
+
     elif opt.lora:
-        # Fine tune frozen network with loRA
+        # Fine tune frozen network with LoRA
         if opt.pretrained_model:
+            print(f"LoRA from pretrained: {opt.pretrained_model}")
             pretrained_path_G_AB = f"{base_folder}/{opt.pretrained_model}/final_model/G_AB_final.pth"
             pretrained_path_G_BA = f"{base_folder}/{opt.pretrained_model}/final_model/G_AB_final.pth"
+
         elif opt.checkpoint_model:
+            print(f"LoRA from checkpoint: {opt.checkpoint_model} (epoch {opt.epoch})")
             pretrained_path_G_AB = f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_AB_{opt.epoch}.pth"
             pretrained_path_G_BA = f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_BA_{opt.epoch}.pth"
             
