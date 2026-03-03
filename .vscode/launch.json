@@ -12,8 +12,8 @@
       "args": [
         // "--lora", "monet2photo",
         // "--checkpoint_model", "saved_models/day2night-horse2zebra-summer2winter_yosemite/model_20260220_162113",
-        // "--pretrained_model", "saved_models/day2night-horse2zebra-summer2winter_yosemite/model_20260209_102637"
-        "--epoch", "0",
+        "--pretrained_model", "saved_models/horse2zebra/model_20260303_140311/final_model",
+        "--epoch", "8",
         "--tasks", "horse2zebra",
         //"--session_folder", "test",
         "--save_model",
@@ -21,7 +21,7 @@
         "--img_height", "64",
         "--img_width", "64",
         "--fid_interval", "5",
-        "--n_epochs", "4"
+        "--n_epochs", "15"
       ]
     }
   ]

@@ -64,8 +64,9 @@ def main():
     
     start_time_str = start_time.strftime("%Y%m%d_%H%M%S")
     if opt.pretrained_model:
-        local_model_folder = os.path.join(base_folder, opt.pretrained_model)
-        session_model_folder = os.path.join(opt.session_folder, opt.pretrained_model)
+        pretrained_model_base = os.path.dirname(opt.pretrained_model) # This removes the /final_model or /saved_checkpoints part 
+        local_model_folder = os.path.join(base_folder, pretrained_model_base)
+        session_model_folder = os.path.join(opt.session_folder, pretrained_model_base)
     else: 
         local_model_folder = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time_str}")
         os.makedirs(local_model_folder, exist_ok=True)
@@ -195,12 +196,12 @@ def main():
         criterion_cycle.cuda()
         criterion_identity.cuda()
 
-    if opt.checkpoint_model is not None and not opt.lora:
-        print(f"Resuming from: {opt.checkpoint_model} (epoch {opt.epoch})")
-        G_AB.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_AB_{opt.epoch}.pth"))
-        G_BA.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_BA_{opt.epoch}.pth"))
-        D_A.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/D_A_{opt.epoch}.pth"))
-        D_B.load_state_dict(torch.load(f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/D_B_{opt.epoch}.pth"))
+    if opt.pretrained_model and not opt.lora:
+        print(f"Resuming from: {opt.pretrained_model} (epoch {opt.epoch})")
+        G_AB.load_state_dict(torch.load(f"{base_folder}/{opt.pretrained_model}/G_AB_{opt.epoch}.pth"))
+        G_BA.load_state_dict(torch.load(f"{base_folder}/{opt.pretrained_model}/G_BA_{opt.epoch}.pth"))
+        D_A.load_state_dict(torch.load(f"{base_folder}/{opt.pretrained_model}/D_A_{opt.epoch}.pth"))
+        D_B.load_state_dict(torch.load(f"{base_folder}/{opt.pretrained_model}/D_B_{opt.epoch}.pth"))
 
     elif opt.lora:
         # Fine tune frozen network with LoRA
@@ -208,11 +209,6 @@ def main():
             print(f"LoRA from pretrained: {opt.pretrained_model}")
             pretrained_path_G_AB = f"{base_folder}/{opt.pretrained_model}/final_model/G_AB_final.pth"
             pretrained_path_G_BA = f"{base_folder}/{opt.pretrained_model}/final_model/G_AB_final.pth"
-
-        elif opt.checkpoint_model:
-            print(f"LoRA from checkpoint: {opt.checkpoint_model} (epoch {opt.epoch})")
-            pretrained_path_G_AB = f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_AB_{opt.epoch}.pth"
-            pretrained_path_G_BA = f"{base_folder}/{opt.checkpoint_model}/saved_checkpoints/G_BA_{opt.epoch}.pth"
             
         load_state_skip_film_embeddings(G_AB, pretrained_path_G_AB, map_location="cpu")
         load_state_skip_film_embeddings(G_BA, pretrained_path_G_BA, map_location="cpu")

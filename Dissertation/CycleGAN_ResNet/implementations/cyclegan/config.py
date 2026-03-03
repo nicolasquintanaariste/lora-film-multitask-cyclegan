@@ -12,7 +12,7 @@ def get_parser(base_folder: str, data_root: str) -> argparse.ArgumentParser:
     parser.add_argument(
         "--tasks", 
         nargs="+",
-        default=["day2night", "horse2zebra", "summer2winter_yosemite"],
+        default=["horse2zebra"],
         help="List of tasks/datasets to train on (space-separated)",
     )
     parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
@@ -45,12 +45,12 @@ def get_parser(base_folder: str, data_root: str) -> argparse.ArgumentParser:
         help="directory of colab session storage to save model data"
     )
     parser.add_argument("--save_model", action="store_true", help="save model data from colab session storage")
-    parser.add_argument(
-        "--checkpoint_model",
-        type=str,
-        default=None,
-        help="checkpoint to start training from. i.e saved_models/day2night-horse2zebra-summer2winter_yosemite/model_20260220_162113"
-    )
+    # parser.add_argument(
+    #     "--checkpoint_model",
+    #     type=str,
+    #     default=None,
+    #     help="checkpoint to start training from. i.e saved_models/day2night-horse2zebra-summer2winter_yosemite/model_20260220_162113"
+    # )
     parser.add_argument(
         "--lora",
         nargs="+",
@@ -61,7 +61,7 @@ def get_parser(base_folder: str, data_root: str) -> argparse.ArgumentParser:
         "--pretrained_model",
         type=str,
         default=None,
-        help="pretrained model to finetune lora from. i.e saved_models/day2night/model_20260128_122440"
+        help="pretrained model to finetune lora from. i.e saved_models/day2night/model_20260128_122440/saved_checkpoints or saved_models/day2night/model_20260128_122440/final_model"
     )
     parser.add_argument("--seed", type=int, default=13)
 

@@ -9,10 +9,10 @@ def save_final_models(local_model_folder, G_AB, G_BA, D_A, D_B, opt):
     final_dir = os.path.join(local_model_folder, "final_model")
     os.makedirs(final_dir, exist_ok=True)
 
-    torch.save(G_AB.state_dict(), os.path.join(final_dir, "G_AB_final.pth"))
-    torch.save(G_BA.state_dict(), os.path.join(final_dir, "G_BA_final.pth"))
-    torch.save(D_A.state_dict(), os.path.join(final_dir, "D_A_final.pth"))
-    torch.save(D_B.state_dict(), os.path.join(final_dir, "D_B_final.pth"))
+    torch.save(G_AB.state_dict(), os.path.join(final_dir, f"G_AB_{opt.n_epochs}.pth"))
+    torch.save(G_BA.state_dict(), os.path.join(final_dir, f"G_BA_{opt.n_epochs}.pth"))
+    torch.save(D_A.state_dict(), os.path.join(final_dir, f"D_A_{opt.n_epochs}.pth"))
+    torch.save(D_B.state_dict(), os.path.join(final_dir, f"D_B_{opt.n_epochs}.pth"))
 
     if opt.lora:
         lora_state_dict = {name: param.detach().cpu()
