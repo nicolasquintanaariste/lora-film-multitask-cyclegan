@@ -42,8 +42,8 @@ if __name__ == "__main__":
     ####################################
     # Added from my model
     ####################################
-    base_folder = "Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation"
-    image_folder = f"Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation\\results\\{opt.name}\\images"
+    base_folder = "Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation"
+    image_folder = f"Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation/results/{opt.name}/images"
     timer = PhaseTimer(use_cuda_sync=True)
     transforms_ = [   # Image transformations
         # transforms.Resize(int(opt.img_height * 1.12), Image.BICUBIC), # x1.12 would make img bigger and crop edges
@@ -55,8 +55,8 @@ if __name__ == "__main__":
     ]
     task2id = {"horse2zebra": 0}  # this is just a placeholder
     Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor
-    fid_image_dir_A = f"Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation\\results\\{opt.name}\\fake\\A"
-    fid_image_dir_B = f"Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation\\results\\{opt.name}\\fake\\B"
+    fid_image_dir_A = f"Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation/results/{opt.name}/fake/A"
+    fid_image_dir_B = f"Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation/results/{opt.name}/fake/B"
     real_dir = os.path.join(opt.dataroot, "testB_normalised")
     with timer.track("prep/fid_save_real"):
         fid_save_real(
@@ -66,7 +66,7 @@ if __name__ == "__main__":
             max_images=250,
             batch_size=opt.batch_size,
         )
-    metric_logger = MetricLogger(csv_path=os.path.join(f"Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation\\results\\{opt.name}", "fid_kid.csv"))
+    metric_logger = MetricLogger(csv_path=os.path.join(f"Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation/results/{opt.name}", "fid_kid.csv"))
     
     model = create_model(opt)  # create a model given opt.model and other options
     model.setup(opt)  # regular setup: load and print networks; create schedulers
@@ -128,12 +128,12 @@ if __name__ == "__main__":
                 metric_logger.log(epoch=epoch + 1, fid=fid, kid=kid)
                 plot_fid(
                     metric_logger,
-                    out_path=os.path.join(f"Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation\\results\\{opt.name}", f"fid.png"),
+                    out_path=os.path.join(f"Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation/results/{opt.name}", f"fid.png"),
                     show=False
                 )
                 plot_kid(
                     metric_logger,
-                    out_path=os.path.join(f"Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation\\results\\{opt.name}", f"kid.png"),
+                    out_path=os.path.join(f"Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation/results/{opt.name}", f"kid.png"),
                     show=False
                 )
                 
