@@ -520,7 +520,7 @@ def main():
         
         # Copy model folder to drive
         if opt.save_model and os.path.abspath(opt.session_folder) != os.path.abspath(base_folder):
-            destination = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time_str}")
+            destination = os.path.join(base_folder, local_model_folder)
             copy_missing(session_model_folder, destination)
         
         # Save model checkpoints
