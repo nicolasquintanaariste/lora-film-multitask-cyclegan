@@ -12,7 +12,7 @@ def get_parser(base_folder: str, data_root: str) -> argparse.ArgumentParser:
     parser.add_argument(
         "--tasks", 
         nargs="+",
-        default=["horse2zebra"],
+        default=["summer2winter_yosemite"],
         help="List of tasks/datasets to train on (space-separated)",
     )
     parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
