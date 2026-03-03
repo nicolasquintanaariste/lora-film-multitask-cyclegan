@@ -22,6 +22,7 @@ __pycache__/
 *.png
 *.json
 *.csv
+*.ipynb
 
 /images/day2night/
 
