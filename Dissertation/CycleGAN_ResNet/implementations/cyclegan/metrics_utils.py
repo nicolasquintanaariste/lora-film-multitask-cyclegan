@@ -105,6 +105,7 @@ def compute_fid_kid(real_dir, fake_dir, kid_default=1000):
         verbose=False,
     )
     return float(metrics["frechet_inception_distance"]), float(metrics["kernel_inception_distance_mean"])
+
 def fid_save_real(in_dir, out_dir, transforms_, max_images=250, batch_size=1, n_cpu=0):
     """
     Saves normalised real images for FID/KID computation.
