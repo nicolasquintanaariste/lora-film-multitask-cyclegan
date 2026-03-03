@@ -61,12 +61,17 @@ def main():
     task_name = "-".join(training_tasks)
     suffix = "_lora" if opt.lora is not None else ""
 
+    
     start_time_str = start_time.strftime("%Y%m%d_%H%M%S")
-    local_model_folder = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time_str}")
-    os.makedirs(local_model_folder, exist_ok=True)
+    if opt.pretrained_model:
+        local_model_folder = os.path.join(base_folder, opt.pretrained_model)
+        session_model_folder = os.path.join(opt.session_folder, opt.pretrained_model)
+    else: 
+        local_model_folder = os.path.join(base_folder, "saved_models", task_name + suffix, f"model_{start_time_str}")
+        os.makedirs(local_model_folder, exist_ok=True)
 
-    session_model_folder = os.path.join(opt.session_folder, "saved_models", task_name + suffix, f"model_{start_time_str}")
-    os.makedirs(session_model_folder, exist_ok=True)
+        session_model_folder = os.path.join(opt.session_folder, "saved_models", task_name + suffix, f"model_{start_time_str}")
+        os.makedirs(session_model_folder, exist_ok=True)
 
     image_folder = os.path.join(session_model_folder, "images")
     fid_image_dir = os.path.join(session_model_folder, "images", "fake")

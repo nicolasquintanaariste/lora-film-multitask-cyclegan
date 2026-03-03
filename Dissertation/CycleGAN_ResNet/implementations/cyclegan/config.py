@@ -29,8 +29,8 @@ def get_parser(base_folder: str, data_root: str) -> argparse.ArgumentParser:
     parser.add_argument("--fid_interval", type=int, default=3, help="interval between fid calculation")
     parser.add_argument("--checkpoint_interval", type=int, default=5, help="interval between saving model checkpoints")
     parser.add_argument("--n_residual_blocks", type=int, default=3, help="number of residual blocks in generator")
-    parser.add_argument("--lambda_cyc", type=float, default=5.0, help="cycle loss weight")
-    parser.add_argument("--lambda_id", type=float, default=0.01, help="identity loss weight")
+    parser.add_argument("--lambda_cyc", type=float, default=10, help="cycle loss weight")
+    parser.add_argument("--lambda_id", type=float, default=0.5, help="identity loss weight")
     parser.add_argument("--epoch", type=int, default=0, help="epoch to start training from")
     parser.add_argument(
         "--data_folder",
