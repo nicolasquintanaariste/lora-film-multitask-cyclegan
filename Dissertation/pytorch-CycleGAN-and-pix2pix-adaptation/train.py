@@ -58,6 +58,14 @@ if __name__ == "__main__":
     fid_image_dir_A = f"Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation\\results\\{opt.name}\\fake\\A"
     fid_image_dir_B = f"Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation\\results\\{opt.name}\\fake\\B"
     real_dir = os.path.join(opt.dataroot, "testB_normalised")
+    with timer.track("prep/fid_save_real"):
+        fid_save_real(
+            in_dir=os.path.join(opt.dataroot),
+            out_dir=real_dir,
+            transforms_=transforms_,
+            max_images=250,
+            batch_size=opt.batch_size,
+        )
     metric_logger = MetricLogger(csv_path=os.path.join(f"Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation\\results\\{opt.name}", "fid_kid.csv"))
     
     model = create_model(opt)  # create a model given opt.model and other options

@@ -47,7 +47,7 @@ class ImageDatasetMetrics(Dataset):
         self.transform = transforms.Compose(transforms_)
         self.unaligned = unaligned
 
-        self.files_B = sorted(glob.glob(os.path.join(root, "test", "B", "*.*")))
+        self.files_B = sorted(glob.glob(os.path.join(root, "testB", "*.*")))
 
     def __getitem__(self, index):
         image_B = Image.open(self.files_B[index % len(self.files_B)])
