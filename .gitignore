@@ -19,6 +19,9 @@ data/
 __pycache__/
 *.pyc
 *.pth
+*.png
+*.json
+*.csv
 
 /images/day2night/
 
