@@ -58,7 +58,7 @@ class CycleGANModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        self.loss_names = ["D_A", "G_A", "cycle_A", "idt_A", "D_B", "G_B", "cycle_B", "idt_B"]
+        self.loss_names = ["G", "D", "cycle", "adversarial", "idt", "D_A", "G_A", "cycle_A", "idt_A", "D_B", "G_B", "cycle_B", "idt_B"]
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         visual_names_A = ["real_A", "fake_B", "rec_A"]
         visual_names_B = ["real_B", "fake_A", "rec_B"]
@@ -135,20 +135,25 @@ class CycleGANModel(BaseModel):
         # Fake
         pred_fake = netD(fake.detach())
         loss_D_fake = self.criterionGAN(pred_fake, False)
+        
+        # Calculate discriminator signal
+        D_real_mean = pred_real.mean().item()
+        D_fake_mean = pred_fake.mean().item()
+        
         # Combined loss and calculate gradients
         loss_D = (loss_D_real + loss_D_fake) * 0.5
         loss_D.backward()
-        return loss_D
+        return loss_D, D_real_mean, D_fake_mean
 
     def backward_D_A(self):
         """Calculate GAN loss for discriminator D_A"""
         fake_B = self.fake_B_pool.query(self.fake_B)
-        self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_B, fake_B)
+        self.loss_D_A, self.D_A_real_mean, self.D_A_fake_mean = self.backward_D_basic(self.netD_A, self.real_B, fake_B)
 
     def backward_D_B(self):
         """Calculate GAN loss for discriminator D_B"""
         fake_A = self.fake_A_pool.query(self.fake_A)
-        self.loss_D_B = self.backward_D_basic(self.netD_B, self.real_A, fake_A)
+        self.loss_D_B, self.D_B_real_mean, self.D_B_fake_mean = self.backward_D_basic(self.netD_B, self.real_A, fake_A)
 
     def backward_G(self):
         """Calculate the loss for generators G_A and G_B"""
@@ -175,8 +180,12 @@ class CycleGANModel(BaseModel):
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss || G_A(G_B(B)) - B||
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
+        # Total losses
+        self.loss_adversarial = self.loss_G_A + self.loss_G_B
+        self.loss_cycle = self.loss_cycle_A + self.loss_cycle_B
+        self.loss_idt = self.loss_idt_A + self.loss_idt_B
         # combined loss and calculate gradients
-        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
+        self.loss_G = self.loss_adversarial + self.loss_cycle + self.loss_idt
         self.loss_G.backward()
 
     def optimize_parameters(self):
@@ -193,4 +202,5 @@ class CycleGANModel(BaseModel):
         self.optimizer_D.zero_grad()  # set D_A and D_B's gradients to zero
         self.backward_D_A()  # calculate gradients for D_A
         self.backward_D_B()  # calculate graidents for D_B
+        self.loss_D = self.loss_D_A + self.loss_D_B
         self.optimizer_D.step()  # update D_A and D_B's weights

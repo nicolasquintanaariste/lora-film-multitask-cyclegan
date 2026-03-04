@@ -30,6 +30,7 @@ from util.util import init_ddp, cleanup_ddp
 from utils import *
 from save_utils import *
 from metrics_utils import *
+from loss_utils import LossLogger, plot_losses
 
 
 if __name__ == "__main__":
@@ -42,8 +43,12 @@ if __name__ == "__main__":
     ####################################
     # Added from my model
     ####################################
-    base_folder = "Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation"
     image_folder = f"results/{opt.name}/images"
+    local_model_folder = f"results/{opt.name}"
+    loss_csv = f"{local_model_folder}/loss_log.csv"
+    loss_plot_path = f"{local_model_folder}/loss_plot.png"
+    logger = LossLogger(csv_path=loss_csv)
+    
     timer = PhaseTimer(use_cuda_sync=True)
     transforms_ = [   # Image transformations
         # transforms.Resize(int(opt.img_height * 1.12), Image.BICUBIC), # x1.12 would make img bigger and crop edges
@@ -101,6 +106,22 @@ if __name__ == "__main__":
                 t_comp = (time.time() - iter_start_time) / opt.batch_size
                 visualizer.print_current_losses(epoch, epoch_iter, losses, t_comp, t_data)
                 visualizer.plot_current_losses(total_iters, losses)
+                
+                # Loggings added by me             
+                logger.log(
+                    step=total_iters,
+                    loss_G=losses['G'],
+                    loss_GAN=losses['adversarial'],
+                    loss_cycle=losses['cycle'],
+                    loss_identity=losses['idt'],
+                    loss_D=losses['D'],
+                    loss_D_A=losses['D_A'],
+                    loss_D_B=losses['D_B'],
+                    dA_real_mean=model.D_A_real_mean,
+                    dA_fake_mean=model.D_A_fake_mean,
+                    dB_real_mean=model.D_B_real_mean,
+                    dB_fake_mean=model.D_B_fake_mean,
+                )  
 
             if total_iters % opt.save_latest_freq == 0:  # cache our latest model every <save_latest_freq> iterations
                 print(f"saving the latest model (epoch {epoch}, total_iters {total_iters})")
@@ -117,7 +138,7 @@ if __name__ == "__main__":
             model.save_networks(epoch)
             
         # Plot FID
-        if epoch % 5 == 0: #opt.fid_interval == 0:
+        if (epoch-1) % 5 == 0: #opt.fid_interval == 0:
             with timer.track("fid/compute"):
                 fid_inference(epoch, opt, transforms_, task2id, Tensor, model.netG_A, model.netG_B, fid_image_dir_A, fid_image_dir_B)
 
@@ -125,7 +146,7 @@ if __name__ == "__main__":
                 
                 fid, kid = compute_fid_kid(real_dir, fake_dir)
 
-                metric_logger.log(epoch=epoch + 1, fid=fid, kid=kid)
+                metric_logger.log(epoch=epoch, fid=fid, kid=kid)
                 plot_fid(
                     metric_logger,
                     out_path=os.path.join(f"results/{opt.name}", f"fid.png"),
@@ -142,7 +163,7 @@ if __name__ == "__main__":
             with timer.track("sample_images/compute"):
                 sample_images(epoch, opt, ["horse2zebra"], model.netG_A, model.netG_B, task2id, image_folder, Tensor)
                 sample_images(epoch, opt, ["horse2zebra"], model.netG_A, model.netG_B, task2id, image_folder, Tensor, 42)
-                #plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
+                plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
 
         
         # # Copy model folder to drive

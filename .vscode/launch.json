@@ -7,16 +7,19 @@
       "request": "launch",
       "program": "${workspaceFolder}/Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation/train.py",
       "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation",
       "justMyCode": false,
       "args": [
-        "--dataroot", "Dissertation\\pytorch-CycleGAN-and-pix2pix-adaptation\\datasets\\horse2zebra", 
-        "--name", "horse2zebra_020326", 
+        "--dataroot", "datasets\\horse2zebra", 
+        "--name", "horse2zebra_040326_1", 
         "--model", "cycle_gan", 
         "--crop_size", "64", 
         "--max_dataset_size", "5", 
-        "--n_epochs", "5", 
-        "--n_epochs_decay", "0"
+        "--n_epochs", "15", 
+        "--n_epochs_decay", "0", 
+        "--use_wandb",
+        "--wandb_project_name", "cyclegan-thesis",
+        "--print_freq", "2"
       ]
     }
   ]
