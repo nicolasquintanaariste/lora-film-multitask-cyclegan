@@ -5,20 +5,22 @@
       "name": "Debug original cycle_gan",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation/train.py",
+      "program": "${workspaceFolder}/Dissertation/pytorch-CycleGAN-and-pix2pix-film/train.py",
       "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}/Dissertation/pytorch-CycleGAN-and-pix2pix-adaptation",
+      "cwd": "${workspaceFolder}/Dissertation/pytorch-CycleGAN-and-pix2pix-film",
       "justMyCode": false,
       "args": [
-        "--dataroot", "datasets\\horse2zebra", 
-        "--name", "horse2zebra_040326_1", 
+        "--dataroot", "datasets\\horse2zebra",
+        "--dataroot_general", "datasets", 
+        "--tasks", "horse2zebra", "day2night", "summer2winter_yosemite",
+        "--name", "MTT_070326_2", 
         "--model", "cycle_gan", 
+        "--netG", "resnet_9blocks_film",
+        "--netD", "basic_film",
         "--crop_size", "64", 
         "--max_dataset_size", "5", 
         "--n_epochs", "15", 
         "--n_epochs_decay", "0", 
-        "--use_wandb",
-        "--wandb_project_name", "cyclegan-thesis",
         "--print_freq", "2"
       ]
     }
