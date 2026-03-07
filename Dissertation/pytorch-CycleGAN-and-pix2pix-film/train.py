@@ -56,6 +56,8 @@ if __name__ == "__main__":
     ####################################
     image_folder = f"results/{opt.name}/images"
     local_model_folder = f"results/{opt.name}"
+    os.makedirs(local_model_folder, exist_ok=True)
+    os.makedirs(image_folder, exist_ok=True)
     loss_csv = f"{local_model_folder}/loss_log.csv"
     loss_plot_path = f"{local_model_folder}/loss_plot.png"
     logger = LossLogger(csv_path=loss_csv)
@@ -117,32 +119,32 @@ if __name__ == "__main__":
                 model.set_input(data, tid)  # unpack data from dataset and apply preprocessing
                 model.optimize_parameters_film()  # calculate loss functions, get gradients, update network weights
 
+                # Log losses every batch
+                losses = model.get_current_losses()
+                logger.log(
+                    step=total_iters,
+                    loss_G=losses['G'],
+                    loss_GAN=losses['adversarial'],
+                    loss_cycle=losses['cycle'],
+                    loss_identity=losses['idt'],
+                    loss_D=losses['D'],
+                    loss_D_A=losses['D_A'],
+                    loss_D_B=losses['D_B'],
+                    dA_real_mean=model.D_A_real_mean,
+                    dA_fake_mean=model.D_A_fake_mean,
+                    dB_real_mean=model.D_B_real_mean,
+                    dB_fake_mean=model.D_B_fake_mean,
+                )
+
                 if total_iters % opt.display_freq == 0:  # display images on visdom and save images to a HTML file
                     save_result = total_iters % opt.update_html_freq == 0
                     model.compute_visuals()
                     visualizer.display_current_results(model.get_current_visuals(), epoch, total_iters, save_result)
 
                 if total_iters % opt.print_freq == 0:  # print training losses and save logging information to the disk
-                    losses = model.get_current_losses()
                     t_comp = (time.time() - iter_start_time) / opt.batch_size
                     visualizer.print_current_losses(epoch, epoch_iter, losses, t_comp, t_data)
                     visualizer.plot_current_losses(total_iters, losses)
-                    
-                    # Loggings added by me             
-                    logger.log(
-                        step=total_iters,
-                        loss_G=losses['G'],
-                        loss_GAN=losses['adversarial'],
-                        loss_cycle=losses['cycle'],
-                        loss_identity=losses['idt'],
-                        loss_D=losses['D'],
-                        loss_D_A=losses['D_A'],
-                        loss_D_B=losses['D_B'],
-                        dA_real_mean=model.D_A_real_mean,
-                        dA_fake_mean=model.D_A_fake_mean,
-                        dB_real_mean=model.D_B_real_mean,
-                        dB_fake_mean=model.D_B_fake_mean,
-                    )  
 
                 if total_iters % opt.save_latest_freq == 0:  # cache our latest model every <save_latest_freq> iterations
                     print(f"saving the latest model (epoch {epoch}, total_iters {total_iters})")
