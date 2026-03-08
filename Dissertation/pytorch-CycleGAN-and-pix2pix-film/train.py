@@ -31,6 +31,7 @@ from utils import *
 from save_utils import *
 from metrics_utils import *
 from loss_utils import LossLogger, plot_losses
+from data.base_dataset import get_transform
 
 
 if __name__ == "__main__":
@@ -45,11 +46,8 @@ if __name__ == "__main__":
     task_datasets = {}
     for task in opt.tasks:
         task_datasets[task2id[task]] = create_dataset(opt, task) ### Change opt so that films makes use of FiLM datasets
-    max_dataset_size = max(len(dataset) for dataset in task_datasets.values())  # get the number of images in the dataset.
-    min_dataset_size = min(len(dataset) for dataset in task_datasets.values())
-    max_iters_per_epoch = min_dataset_size // opt.batch_size
-    print(f"The number of training images = {min_dataset_size}")
-    tid = random.randint(0, len(opt.tasks)-1)
+    loader = MultiTaskDataLoader(task_datasets, max_iters_mode="min")
+    print(f"Iters per epoch = {loader.iters_per_epoch}")
     
     ####################################
     # Added from my model
@@ -64,27 +62,20 @@ if __name__ == "__main__":
     
     start_time = datetime.datetime.now()
     timer = PhaseTimer(use_cuda_sync=True)
-    transforms_ = [   # Image transformations
-        # transforms.Resize(int(opt.img_height * 1.12), Image.BICUBIC), # x1.12 would make img bigger and crop edges
-        transforms.Resize(256),  # Resize shortest side to img_height, maintains aspect ratio
-        transforms.RandomCrop((256, 256)),  # Now crop to square
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    ]
+    transforms_ = get_transform(opt, params=None, convert=True)
+    # transforms_ = [   # Image transformations
+    #     # transforms.Resize(int(opt.img_height * 1.12), Image.BICUBIC), # x1.12 would make img bigger and crop edges
+    #     transforms.Resize(256),  # Resize shortest side to img_height, maintains aspect ratio
+    #     transforms.RandomCrop((256, 256)),  # Now crop to square
+    #     transforms.RandomHorizontalFlip(),
+    #     transforms.ToTensor(),
+    #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    # ]
     Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor
   
-    with timer.track("prep/fid_save_real"):
-        for task in opt.tasks:
-            real_dir = os.path.join(opt.dataroot_general, task, "testB_normalised")
-            fid_save_real(
-                in_dir=os.path.join(opt.dataroot_general, task),
-                out_dir=real_dir,
-                transforms_=transforms_,
-                max_images=250,
-                batch_size=opt.batch_size,
-            )
-    metric_logger = MetricLogger(csv_path=os.path.join(f"results/{opt.name}", "fid_kid.csv"))
+    # Saving normalised images of datasets for FID evaluation
+    fid_evaluator = FIDEvaluator(opt, transforms_, task2id, Tensor, f"results/{opt.name}")
+    fid_evaluator.prep_real(timer)
     
     model = create_model(opt)  # create a model given opt.model and other options
     model.setup(opt)  # regular setup: load and print networks; create schedulers
@@ -96,19 +87,11 @@ if __name__ == "__main__":
             iter_data_time = time.time()  # timer for data loading per iteration
             epoch_iter = 0  # the number of training iterations in current epoch, reset to 0 every epoch
             visualizer.reset()
-            # Set epoch for DistributedSampler
-            for dataset in task_datasets.values():
-                if hasattr(dataset, "set_epoch"):
-                    dataset.set_epoch(epoch)
-
-            # Choose one tid to train on per epoch
-            if tid+1 >= len(opt.tasks):
-                tid = 0
-            else: 
-                tid += 1 
+            loader.set_epoch(epoch) # Set epoch for DistributedSampler
+            tid = loader.next_tid() # Choose one tid to train on per epoch
             
             for i, data in enumerate(task_datasets[tid]):  # inner loop within one epoch
-                if i >= max_iters_per_epoch: # limit iterations to the smallest dataset
+                if i >= loader.iters_per_epoch: # limit iterations to the smallest dataset
                     break
                 iter_start_time = time.time()  # timer for computation per iteration
                 if total_iters % opt.print_freq == 0:
@@ -162,40 +145,14 @@ if __name__ == "__main__":
                 
             # Plot FID
             if (epoch-1) % 10 == 0: #opt.fid_interval == 0:
-                with timer.track("fid/compute"):
-                    for task in opt.tasks:
-                        fid_image_dir_A = f"results/{opt.name}/fake/{task}/A"
-                        fid_image_dir_B = f"results/{opt.name}/fake/{task}/B"                       
-                        fid_inference(epoch, opt, transforms_, task, task2id, Tensor, model.netG_A, model.netG_B, fid_image_dir_A, fid_image_dir_B)
-
-                        fake_dir = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
-                        
-                        fid, kid = compute_fid_kid(real_dir, fake_dir)
-
-                        metric_logger.log(epoch=epoch, fid=fid, kid=kid, task=task)
-                        plot_fid(
-                            metric_logger,
-                            out_path=os.path.join(f"results/{opt.name}", f"fid.png"),
-                            show=False
-                        )
-                        plot_kid(
-                            metric_logger,
-                            out_path=os.path.join(f"results/{opt.name}", f"kid.png"),
-                            show=False
-                        )
+                fid_evaluator.evaluate(epoch, model.netG_A, model.netG_B, timer)
                     
             # Generate samples and plot losses
             if epoch % 1 == 0: #opt.sample_interval == 0:
                 with timer.track("sample_images/compute"):
                     sample_images(epoch, opt, model.netG_A, model.netG_B, task2id, image_folder, Tensor)
                     sample_images(epoch, opt, model.netG_A, model.netG_B, task2id, image_folder, Tensor, 42)
-                    plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)      
-            
-            # # Copy model folder to drive
-            # destination = os.path.join(base_folder, local_model_folder)
-            # copy_missing(session_model_folder, destination)
-                
-            
+                    plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)            
 
             print(f"End of epoch {epoch} / {opt.n_epochs + opt.n_epochs_decay} \t Time Taken: {time.time() - epoch_start_time:.0f} sec")
 

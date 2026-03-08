@@ -4,7 +4,6 @@ import datetime
 import sys
 import os
 import shutil
-import gc
 
 from torch.autograd import Variable
 import torch
@@ -192,37 +191,7 @@ def infer(loader, tid, G_AB, G_BA, Tensor):
         fake_B = G_AB(real_A, tid)
         fake_A = G_BA(real_B, tid)
         
-    return fake_A, fake_B, real_A, real_B
-        
-def fid_inference(epoch, opt, transforms_, task, task2id, Tensor, G_AB, G_BA, fid_image_dir_A, fid_image_dir_B):
-    # FID data loader
-    fid_max_imgs = 250
-    fid_dataset = ImageDataset(
-        root=os.path.join(opt.dataroot_general, task),
-        transforms_=transforms_,
-        unaligned=True,
-        mode="test"
-    )
-    fid_loader = DataLoader(fid_dataset, batch_size=fid_max_imgs, shuffle=True, num_workers=0)
-        
-    gc.collect()
-    torch.cuda.empty_cache()
-    
-    tid = torch.tensor([task2id[task]], device=next(G_AB.parameters()).device, dtype=torch.long)
-    fake_A, fake_B, real_A, real_B = infer(fid_loader, tid, G_AB, G_BA, Tensor)
-    
-    epoch_dir_A = os.path.join(fid_image_dir_A, f"epoch{epoch:03d}")
-    epoch_dir_B = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
-    os.makedirs(epoch_dir_A, exist_ok=True)
-    os.makedirs(epoch_dir_B, exist_ok=True)
-
-    fake_A = (fake_A.detach().cpu() * 0.5 + 0.5)  # map [-1,1] -> [0,1]
-    fake_B = (fake_B.detach().cpu() * 0.5 + 0.5)
-
-    for i in range(fake_A.size(0)):
-        save_image(fake_A[i], os.path.join(epoch_dir_A, f"{i:04d}.png"), normalize=False)
-        save_image(fake_B[i], os.path.join(epoch_dir_B, f"{i:04d}.png"), normalize=False)     
-        
+    return fake_A, fake_B, real_A, real_B    
         
 def inspect_trainable(model, name="model"):
     total = 0
@@ -251,3 +220,30 @@ def inspect_trainable(model, name="model"):
     print(f"  LoRA params:     {lora:,}")
     print(f"  FiLM params:     {film:,}")
     print(f"  Base params:     {base:,}")
+    
+class MultiTaskDataLoader:
+    """Cycles through tasks round-robin, yielding (data, task_id) pairs."""
+    
+    def __init__(self, task_datasets: dict, max_iters_mode: str = "min"):
+        """
+        task_datasets: {task_id: dataset}
+        max_iters_mode: "min" uses smallest dataset length, "max" uses largest
+        """
+        self.task_datasets = task_datasets
+        self.max_iters_mode = max_iters_mode
+        self._tid_cycle = list(task_datasets.keys())
+        self._tid_index = -1
+
+    @property
+    def iters_per_epoch(self):
+        sizes = [len(ds) for ds in self.task_datasets.values()]
+        return min(sizes) if self.max_iters_mode == "min" else max(sizes)
+
+    def next_tid(self):
+        self._tid_index = (self._tid_index + 1) % len(self._tid_cycle)
+        return self._tid_cycle[self._tid_index]
+
+    def set_epoch(self, epoch):
+        for dataset in self.task_datasets.values():
+            if hasattr(dataset, "set_epoch"):
+                dataset.set_epoch(epoch)

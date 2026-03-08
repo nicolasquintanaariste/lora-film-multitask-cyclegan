@@ -3,15 +3,19 @@ import os
 import csv
 import matplotlib.pyplot as plt
 import pandas as pd
+import contextlib
+import gc
 
 import torch
 from torch_fidelity import calculate_metrics
+from torchvision import transforms
 
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 
 from datasets import ImageDatasetMetrics
-
+from utils import infer
+from datasets import ImageDataset
 
 
 class MetricLogger:
@@ -36,135 +40,207 @@ class MetricLogger:
                 if write_header:
                     writer.writerow(["epoch", "task", "fid", "kid"])
                 writer.writerow([epoch, task, fid, kid])
+class FIDEvaluator:
+    def __init__(self, opt, transforms_, task2id, Tensor, base_results_dir):
+        self.opt = opt
+        self.transforms_ = transforms_
+        self.task2id = task2id
+        self.Tensor = Tensor
+        self.metric_logger = MetricLogger(
+            csv_path=os.path.join(base_results_dir, "fid_kid.csv")
+        )
+        self.base_results_dir = base_results_dir
+        self.real_dirs = {}  # populated by prep_real()
 
-def plot_fid(metric_logger: MetricLogger, out_path=None, show=False):
-    if metric_logger.csv_path is None or not os.path.exists(metric_logger.csv_path):
-        print("No CSV path or file not found.")
-        return
+    def prep_real(self, timer=None):
+        """Save real images once before training starts."""
+        ctx = timer.track("prep/fid_save_real") if timer else contextlib.nullcontext()
+        with ctx:
+            for task in self.opt.tasks:
+                real_dir = os.path.join(self.opt.dataroot_general, task, "testB_normalised")
+                self.fid_save_real(
+                    in_dir=os.path.join(self.opt.dataroot_general, task),
+                    out_dir=real_dir,
+                    max_images=250,
+                )
+                self.real_dirs[task] = real_dir
 
-    df = pd.read_csv(metric_logger.csv_path)
+    def evaluate(self, epoch, netG_A, netG_B, timer=None):
+        """Run FID/KID for all tasks and save plots."""
+        ctx = timer.track("fid/compute") if timer else contextlib.nullcontext()
+        with ctx:
+            for task in self.opt.tasks:
+                fid_image_dir_A = f"{self.base_results_dir}/fake/{task}/A"
+                fid_image_dir_B = f"{self.base_results_dir}/fake/{task}/B"
+                self.fid_inference(epoch, task, netG_A, netG_B, fid_image_dir_A, fid_image_dir_B)
 
-    fig, ax = plt.subplots(figsize=(10, 4))
+                fake_dir = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
+                fid, kid = self.compute_fid_kid(self.real_dirs[task], fake_dir)
 
-    if 'task' in df.columns and df['task'].notna().any():
-        for task in df['task'].unique():
-            subset = df[df['task'] == task]
-            ax.plot(subset['epoch'], subset['fid'], marker="o", label=f"FID {task}")
-    else:
-        ax.plot(df['epoch'], df['fid'], marker="o", label="FID")
+                self.metric_logger.log(epoch=epoch, fid=fid, kid=kid, task=task)
 
-    ax.set_title("FID per epoch")
-    ax.set_xlabel("Epoch")
-    ax.grid(True, alpha=0.3)
-    ax.legend()
+            self.plot_fid(out_path=os.path.join(self.base_results_dir, "fid.png"), show=False)
+            self.plot_kid(out_path=os.path.join(self.base_results_dir, "kid.png"), show=False)
+            
+    def plot_fid(self, out_path=None, show=False):
+        if self.metric_logger.csv_path is None or not os.path.exists(self.metric_logger.csv_path):
+            print("No CSV path or file not found.")
+            return
 
-    fig.tight_layout()
+        df = pd.read_csv(self.metric_logger.csv_path)
 
-    if out_path is not None:
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        fig.savefig(out_path, dpi=150)
+        fig, ax = plt.subplots(figsize=(10, 4))
 
-    if show:
-        plt.show()
+        if 'task' in df.columns and df['task'].notna().any():
+            for task in df['task'].unique():
+                subset = df[df['task'] == task]
+                ax.plot(subset['epoch'], subset['fid'], marker="o", label=f"FID {task}")
+        else:
+            ax.plot(df['epoch'], df['fid'], marker="o", label="FID")
 
-    plt.close(fig)
+        ax.set_title("FID per epoch")
+        ax.set_xlabel("Epoch")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+
+        fig.tight_layout()
+
+        if out_path is not None:
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            fig.savefig(out_path, dpi=150)
+
+        if show:
+            plt.show()
+
+        plt.close(fig)
+        
+    def plot_kid(self, out_path=None, show=False):
+        if self.metric_logger.csv_path is None or not os.path.exists(self.metric_logger.csv_path):
+            print("No CSV path or file not found.")
+            return
+
+        df = pd.read_csv(self.metric_logger.csv_path)
+
+        fig, ax = plt.subplots(figsize=(10, 4))
+
+        if 'task' in df.columns and df['task'].notna().any():
+            for task in df['task'].unique():
+                subset = df[df['task'] == task]
+                ax.plot(subset['epoch'], subset['kid'], marker="o", label=f"KID {task}")
+        else:
+            ax.plot(df['epoch'], df['kid'], marker="o", label="KID")
+
+        ax.set_title("KID per epoch")
+        ax.set_xlabel("Epoch")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+
+        fig.tight_layout()
+
+        if out_path is not None:
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            fig.savefig(out_path, dpi=150)
+
+        if show:
+            plt.show()
+
+        plt.close(fig)
     
-def plot_kid(metric_logger: MetricLogger, out_path=None, show=False):
-    if metric_logger.csv_path is None or not os.path.exists(metric_logger.csv_path):
-        print("No CSV path or file not found.")
-        return
+    def fid_inference(self, epoch, task, G_AB, G_BA, fid_image_dir_A, fid_image_dir_B):
+        fid_max_imgs = 250
+        transforms_list = self.transforms_.transforms if isinstance(self.transforms_, transforms.Compose) else self.transforms_
+        fid_dataset = ImageDataset(
+            root=os.path.join(self.opt.dataroot_general, task),
+            transforms_=transforms_list,
+            unaligned=True,
+            mode="test"
+        )
+        fid_loader = DataLoader(fid_dataset, batch_size=fid_max_imgs, shuffle=True, num_workers=0)
 
-    df = pd.read_csv(metric_logger.csv_path)
+        gc.collect()
+        torch.cuda.empty_cache()
 
-    fig, ax = plt.subplots(figsize=(10, 4))
+        tid = torch.tensor([self.task2id[task]], device=next(G_AB.parameters()).device, dtype=torch.long)
+        fake_A, fake_B, real_A, real_B = infer(fid_loader, tid, G_AB, G_BA, self.Tensor)
 
-    if 'task' in df.columns and df['task'].notna().any():
-        for task in df['task'].unique():
-            subset = df[df['task'] == task]
-            ax.plot(subset['epoch'], subset['kid'], marker="o", label=f"KID {task}")
-    else:
-        ax.plot(df['epoch'], df['kid'], marker="o", label="KID")
+        epoch_dir_A = os.path.join(fid_image_dir_A, f"epoch{epoch:03d}")
+        epoch_dir_B = os.path.join(fid_image_dir_B, f"epoch{epoch:03d}")
+        os.makedirs(epoch_dir_A, exist_ok=True)
+        os.makedirs(epoch_dir_B, exist_ok=True)
 
-    ax.set_title("KID per epoch")
-    ax.set_xlabel("Epoch")
-    ax.grid(True, alpha=0.3)
-    ax.legend()
+        fake_A = (fake_A.detach().cpu() * 0.5 + 0.5)
+        fake_B = (fake_B.detach().cpu() * 0.5 + 0.5)
 
-    fig.tight_layout()
+        for i in range(fake_A.size(0)):
+            save_image(fake_A[i], os.path.join(epoch_dir_A, f"{i:04d}.png"), normalize=False)
+            save_image(fake_B[i], os.path.join(epoch_dir_B, f"{i:04d}.png"), normalize=False)
 
-    if out_path is not None:
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        fig.savefig(out_path, dpi=150)
+        
+    def compute_fid_kid(self, real_dir, fake_dir, kid_default=1000):
+        def _count_images(d):
+            if not os.path.isdir(d):
+                return 0
+            return len([f for f in os.listdir(d) if f.lower().endswith((".png", ".jpg", ".jpeg"))])
 
-    if show:
-        plt.show()
+        n_real = _count_images(real_dir)
+        n_fake = _count_images(fake_dir)
+        n_samples = min(n_real, n_fake)
 
-    plt.close(fig)
-    
-def compute_fid_kid(real_dir, fake_dir, kid_default=1000):
-    def _count_images(d):
-        if not os.path.isdir(d):
-            return 0
-        return len([f for f in os.listdir(d) if f.lower().endswith((".png", ".jpg", ".jpeg"))])
+        if n_samples == 0:
+            raise ValueError(f"No images found in real_dir='{real_dir}' or fake_dir='{fake_dir}'")
 
-    n_real = _count_images(real_dir)
-    n_fake = _count_images(fake_dir)
-    n_samples = min(n_real, n_fake)
+        kid_subset = min(kid_default, n_samples)
 
-    if n_samples == 0:
-        raise ValueError(f"No images found in real_dir='{real_dir}' or fake_dir='{fake_dir}'")
+        metrics = calculate_metrics(
+            input1=real_dir,
+            input2=fake_dir,
+            fid=True,
+            kid=True,
+            kid_subset_size=kid_subset,
+            cuda=torch.cuda.is_available(),
+            verbose=False,
+        )
+        return float(metrics["frechet_inception_distance"]), float(metrics["kernel_inception_distance_mean"])
 
-    kid_subset = min(kid_default, n_samples)
+    def fid_save_real(self, in_dir, out_dir, max_images=250):
+        """
+        Saves normalised real images for FID/KID computation.
+        Runs once before training.
+        """
+        os.makedirs(out_dir, exist_ok=True)
 
-    metrics = calculate_metrics(
-        input1=real_dir,
-        input2=fake_dir,
-        fid=True,
-        kid=True,
-        kid_subset_size=kid_subset,
-        cuda=torch.cuda.is_available(),
-        verbose=False,
-    )
-    return float(metrics["frechet_inception_distance"]), float(metrics["kernel_inception_distance_mean"])
-def fid_save_real(in_dir, out_dir, transforms_, max_images=250, batch_size=1, n_cpu=0):
-    """
-    Saves normalised real images for FID/KID computation.
-    Runs once before training.
-    """
+        transforms_list = self.transforms_.transforms if isinstance(self.transforms_, transforms.Compose) else self.transforms_
+        dataset = ImageDatasetMetrics(
+            root=in_dir,
+            transforms_=transforms_list,
+            unaligned=True,
+        )
 
-    os.makedirs(out_dir, exist_ok=True)
+        loader = DataLoader(
+            dataset,
+            batch_size=self.opt.batch_size,
+            shuffle=False,
+            num_workers=0,
+            drop_last=False
+        )
 
-    dataset = ImageDatasetMetrics(
-        root=in_dir,
-        transforms_=transforms_,
-        unaligned=True,
-    )
+        saved = 0
+        for batch in loader:
+            real_B = batch["B"]
 
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=n_cpu,
-        drop_last=False
-    )
+            for i in range(real_B.size(0)):
+                if saved >= max_images:
+                    return
 
-    saved = 0
-    for batch in loader:
-        real_B = batch["B"]
+                img = real_B[i]
 
-        for i in range(real_B.size(0)):
-            if saved >= max_images:
-                return
+                # denormalise from [-1,1] → [0,1] before saving
+                img = img * 0.5 + 0.5
 
-            img = real_B[i]
+                save_image(
+                    img,
+                    os.path.join(out_dir, f"real_{saved:04d}.png"),
+                    normalize=False
+                )
 
-            # denormalise from [-1,1] → [0,1] before saving
-            img = img * 0.5 + 0.5
-
-            save_image(
-                img,
-                os.path.join(out_dir, f"real_{saved:04d}.png"),
-                normalize=False
-            )
-
-            saved += 1
+                saved += 1
