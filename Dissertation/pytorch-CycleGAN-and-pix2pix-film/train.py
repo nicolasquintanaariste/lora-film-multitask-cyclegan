@@ -63,14 +63,6 @@ if __name__ == "__main__":
     start_time = datetime.datetime.now()
     timer = PhaseTimer(use_cuda_sync=True)
     transforms_ = get_transform(opt, params=None, convert=True)
-    # transforms_ = [   # Image transformations
-    #     # transforms.Resize(int(opt.img_height * 1.12), Image.BICUBIC), # x1.12 would make img bigger and crop edges
-    #     transforms.Resize(256),  # Resize shortest side to img_height, maintains aspect ratio
-    #     transforms.RandomCrop((256, 256)),  # Now crop to square
-    #     transforms.RandomHorizontalFlip(),
-    #     transforms.ToTensor(),
-    #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    # ]
     Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor
   
     # Saving normalised images of datasets for FID evaluation
