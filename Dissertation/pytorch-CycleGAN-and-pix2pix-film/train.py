@@ -97,7 +97,7 @@ if __name__ == "__main__":
             epoch_iter = 0  # the number of training iterations in current epoch, reset to 0 every epoch
             visualizer.reset()
             # Set epoch for DistributedSampler
-            for tid, dataset in task_datasets.items():
+            for dataset in task_datasets.values():
                 if hasattr(dataset, "set_epoch"):
                     dataset.set_epoch(epoch)
 
@@ -117,7 +117,7 @@ if __name__ == "__main__":
                 total_iters += opt.batch_size
                 epoch_iter += opt.batch_size
                 model.set_input(data, tid)  # unpack data from dataset and apply preprocessing
-                model.optimize_parameters_film()  # calculate loss functions, get gradients, update network weights
+                model.optimize_parameters()  # calculate loss functions, get gradients, update network weights
 
                 # Log losses every batch
                 losses = model.get_current_losses()
