@@ -33,6 +33,8 @@ from metrics_utils import *
 from loss_utils import LossLogger, plot_losses
 from data.base_dataset import get_transform
 
+import itertools
+
 
 if __name__ == "__main__":
     opt = TrainOptions().parse()  # get training options
@@ -46,7 +48,7 @@ if __name__ == "__main__":
     task_datasets = {}
     for task in opt.tasks:
         task_datasets[task2id[task]] = create_dataset(opt, task) ### Change opt so that films makes use of FiLM datasets
-    loader = MultiTaskDataLoader(task_datasets, max_iters_mode="min")
+    loader = MultiTaskDataLoader(task_datasets, max_iters_mode="max")
     print(f"Iters per epoch = {loader.iters_per_epoch}")
     
     ####################################
@@ -80,14 +82,11 @@ if __name__ == "__main__":
             epoch_iter = 0  # the number of training iterations in current epoch, reset to 0 every epoch
             visualizer.reset()
             loader.set_epoch(epoch) # Set epoch for DistributedSampler
-            task_iters = {tid: iter(ds) for tid, ds in task_datasets.items()}
+            task_iters = {tid: itertools.cycle(ds) for tid, ds in task_datasets.items()}
             for i in range(loader.iters_per_epoch):
                 tid = loader.next_tid()
-                try:
-                    data = next(task_iters[tid])
-                except StopIteration:
-                    task_iters[tid] = iter(task_datasets[tid])
-                    data = next(task_iters[tid])
+                data = next(task_iters[tid])
+
                 iter_start_time = time.time()  # timer for computation per iteration
                 if total_iters % opt.print_freq == 0:
                     t_data = iter_start_time - iter_data_time
