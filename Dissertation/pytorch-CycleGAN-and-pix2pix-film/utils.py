@@ -4,6 +4,7 @@ import datetime
 import sys
 import os
 import shutil
+from statistics import mean
 
 from torch.autograd import Variable
 import torch
@@ -237,7 +238,12 @@ class MultiTaskDataLoader:
     @property
     def iters_per_epoch(self):
         sizes = [len(ds) for ds in self.task_datasets.values()]
-        return min(sizes) if self.max_iters_mode == "min" else max(sizes)
+        if self.max_iters_mode == "min":
+            return min(sizes)
+        elif self.max_iters_mode == "max":
+            return max(sizes)
+        elif self.max_iters_mode == "avg":
+            return int(mean(sizes))
 
     def next_tid(self):
         self._tid_index = (self._tid_index + 1) % len(self._tid_cycle)

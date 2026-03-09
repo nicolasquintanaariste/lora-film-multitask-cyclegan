@@ -75,6 +75,7 @@ if __name__ == "__main__":
     model.setup(opt)  # regular setup: load and print networks; create schedulers
     visualizer = Visualizer(opt)  # create a visualizer that display/save images and plots
     total_iters = 0  # the total number of training iterations
+    task_iters = {tid: itertools.cycle(ds) for tid, ds in task_datasets.items()} 
     for epoch in range(opt.epoch_count, opt.n_epochs + opt.n_epochs_decay + 1):
         with timer.track("train/epoch_total"):
             epoch_start_time = time.time()  # timer for entire epoch
@@ -82,7 +83,7 @@ if __name__ == "__main__":
             epoch_iter = 0  # the number of training iterations in current epoch, reset to 0 every epoch
             visualizer.reset()
             loader.set_epoch(epoch) # Set epoch for DistributedSampler
-            task_iters = {tid: itertools.cycle(ds) for tid, ds in task_datasets.items()}
+            
             for i in range(loader.iters_per_epoch):
                 tid = loader.next_tid()
                 data = next(task_iters[tid])
