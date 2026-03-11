@@ -137,7 +137,7 @@ if __name__ == "__main__":
                 model.save_networks(epoch)
                 
             # Plot FID
-            if (epoch-1) % 10 == 0: #opt.fid_interval == 0:
+            if (epoch-1) % 5 == 0: #opt.fid_interval == 0:
                 fid_evaluator.evaluate(epoch, model.netG_A, model.netG_B, timer)
                     
             # Generate samples and plot losses
