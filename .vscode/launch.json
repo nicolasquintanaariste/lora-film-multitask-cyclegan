@@ -5,23 +5,27 @@
       "name": "Debug original cycle_gan",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/Dissertation/pytorch-CycleGAN-and-pix2pix-film/train-per-batch.py",
+      "program": "${workspaceFolder}/Dissertation/pytorch-CycleGAN-and-pix2pix-film-lora/train-lora.py",
       "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}/Dissertation/pytorch-CycleGAN-and-pix2pix-film",
+      "cwd": "${workspaceFolder}/Dissertation/pytorch-CycleGAN-and-pix2pix-film-lora",
       "justMyCode": false,
       "args": [
+        "--tasks", "horse2zebra",
+        "--use_lora",
+        "--pretrained_dir", "pretrained\\MTT_070326_5",
+        "--load_iter", "15",
         "--dataroot", "datasets\\horse2zebra",
-        "--dataroot_general", "datasets", 
-        "--tasks", "horse2zebra", "day2night", "summer2winter_yosemite",
-        "--name", "MTT_070326_5", 
+        "--dataroot_general", "datasets",
+        "--name", "MTT_lora_100326", 
         "--model", "cycle_gan", 
         "--netG", "resnet_9blocks_film",
         "--netD", "basic_film",
         "--crop_size", "64", 
         "--max_dataset_size", "5", 
-        "--n_epochs", "15", 
+        "--n_epochs", "12", 
         "--n_epochs_decay", "0", 
-        "--print_freq", "2"
+        "--print_freq", "2",
+        "--num_threads", "2"
       ]
     }
   ]

@@ -20,6 +20,7 @@ __pycache__/
 *.pyc
 *.pth
 *.png
+*.jpg
 *.json
 *.csv
 *.ipynb
@@ -80,3 +81,7 @@ test/data/legacy_serialized.pt
 
 #Ignore Wandb
 wandb/
+
+# Ignore repositories
+*/StarGAN
+*/stargan-v2

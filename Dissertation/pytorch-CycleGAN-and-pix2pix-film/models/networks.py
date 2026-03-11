@@ -465,7 +465,6 @@ class ResnetGeneratorFiLM(nn.Module):
             model += [nn.Conv2d(ngf * mult, ngf * mult * 2, kernel_size=3, stride=2, padding=1, bias=use_bias), norm_layer(ngf * mult * 2), nn.ReLU(True)]
 
         mult = 2**n_downsampling
-        film = FiLM(num_tasks, ngf * mult, film_emb_dim) if num_tasks else None
         for i in range(n_blocks):  # add ResNet blocks
             film_i = FiLM(num_tasks, ngf * mult, film_emb_dim) if num_tasks else None
             model += [ResnetBlockFiLM(ngf * mult, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias, film=film_i)]
