@@ -53,11 +53,7 @@ if __name__ == "__main__":
     timer = PhaseTimer(use_cuda_sync=True)
     transforms_ = get_transform(opt, params=None, convert=True)
     Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor
-  
-    # Saving normalised images of datasets for FID evaluation
-    fid_evaluator = FIDEvaluator(opt, transforms_, Tensor, f"results/{opt.name}")
-    fid_evaluator.prep_real(timer)
-    
+   
     # Create model
     model = create_model(opt)  # create a model given opt.model and other options
     model.setup(opt)  # regular setup: load and print networks; create schedulers
@@ -70,6 +66,10 @@ if __name__ == "__main__":
         task_datasets[task2id[task]] = create_dataset(opt, task) ### Change opt so that films makes use of FiLM datasets
     loader = MultiTaskDataLoader(task_datasets, max_iters_mode="avg")
     print(f"Iters per epoch = {loader.iters_per_epoch}")
+    
+    # Saving normalised images of datasets for FID evaluation
+    fid_evaluator = FIDEvaluator(opt, transforms_, Tensor, f"results/{opt.name}", task2id)
+    fid_evaluator.prep_real(timer)
     
     visualizer = Visualizer(opt)  # create a visualizer that display/save images and plots
     total_iters = 0  # the total number of training iterations
