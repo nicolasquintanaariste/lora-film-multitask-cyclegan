@@ -57,6 +57,7 @@ if __name__ == "__main__":
     # Create model
     model = create_model(opt)  # create a model given opt.model and other options
     model.setup(opt)  # regular setup: load and print networks; create schedulers
+    inspect_trainable(model)
     #Create datasets (multitask)
     if "film" in opt.netG.lower():
         opt.dataset_mode = "film"
@@ -137,7 +138,8 @@ if __name__ == "__main__":
                 model.save_networks(epoch)
                 
             # Plot FID
-            if (epoch-1) % 5 == 0: #opt.fid_interval == 0:
+            if (epoch-1) % opt.fid_freq == 0: #opt.fid_interval == 0:
+                print(f"Evaluating model using FID")
                 fid_evaluator.evaluate(epoch, model.netG_A, model.netG_B, timer)
                     
             # Generate samples and plot losses

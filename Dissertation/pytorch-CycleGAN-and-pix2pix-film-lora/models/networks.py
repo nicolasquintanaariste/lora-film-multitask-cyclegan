@@ -5,13 +5,10 @@ import functools
 from torch.optim import lr_scheduler
 
 from .FiLM import FiLM
-from .LoRA import LoRA
-
 
 ###############################################################################
 # Helper Functions
 ###############################################################################
-
 
 class Identity(nn.Module):
     def forward(self, x):
@@ -211,15 +208,6 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm="batch", init_type="normal"
         net = PixelDiscriminatorFiLM(input_nc, ndf, norm_layer=norm_layer, num_tasks=num_tasks)
     else:
         raise NotImplementedError("Discriminator model name [%s] is not recognized" % netD)
-    return net
-
-def wrap_lora(net, opt):
-    if opt.use_lora:
-        for name, m in net.named_children():
-            if isinstance(m, (nn.Conv2d, nn.Linear)):
-                setattr(net, name, LoRA(m, opt.lora_rank))
-            else:
-                wrap_lora(m, opt)
     return net
 
 ##############################################################################

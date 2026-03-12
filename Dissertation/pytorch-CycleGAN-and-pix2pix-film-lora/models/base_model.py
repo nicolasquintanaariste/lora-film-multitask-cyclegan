@@ -5,6 +5,9 @@ from pathlib import Path
 from collections import OrderedDict
 from abc import ABC, abstractmethod
 from . import networks
+from .FiLM import FiLM
+import torch.nn as nn
+from .LoRA import LoRA
 
 
 class BaseModel(ABC):
@@ -120,7 +123,10 @@ class BaseModel(ABC):
                     
                     # Load pretrained model    
                     net.load_state_dict(state_dict, strict=not opt.use_lora)
-                        
+                    
+                    # Wrap network with LoRA adapters and freeze backbone
+                    if opt.use_lora:
+                        self.wrap_lora(net,opt)
 
                 # Move network to device
                 net.to(self.device)
@@ -297,6 +303,50 @@ class BaseModel(ABC):
         self.num_tasks = new_num_tasks
         if dist.is_initialized():
             dist.barrier()
+    
+    def wrap_lora(self, net, opt):
+        """Attach LoRA adapters and freeze the backbone.
+
+        With ``opt.use_lora`` enabled we replace every convolutional/linear layer
+        (except those inside FiLM modules) with a :class:`LoRA` wrapper.  The
+        original parameters are all frozen so that gradients only flow through the
+        low-rank adapters.  After the recursive replacement we perform a final pass
+        to ensure *every* parameter that does not belong to a LoRA adapter is
+        `requires_grad=False`.
+
+        This makes it convenient to build an optimizer over ``model.parameters()``
+        without worrying about accidentally updating the pretrained weights.
+        """
+        if not opt.use_lora:
+            return net
+
+        # Keep FiLM parameters trainable alongside LoRA adapters.
+        film_param_ids = set()
+        for m in net.modules():
+            if isinstance(m, FiLM):
+                for p in m.parameters():
+                    film_param_ids.add(id(p))
+    
+        for name, m in list(net.named_children()):
+            if isinstance(m, FiLM):
+                continue
+            if isinstance(m, (nn.Conv2d, nn.Linear)):
+                # freeze the original weights before wrapping
+                for p in m.parameters():
+                    p.requires_grad = False
+                setattr(net, name, LoRA(m, opt.lora_rank))
+            else:
+                self.wrap_lora(m, opt)
+
+        # final pass: make sure only LoRA parameters are trainable
+        for pname, p in net.named_parameters():
+            if "lora_" in pname or id(p) in film_param_ids:
+                p.requires_grad = True
+            else:
+                p.requires_grad = False
+
+        return net
+
     def print_networks(self, verbose):
         """Print the total number of parameters in the network and (if verbose) network architecture
 
@@ -325,8 +375,14 @@ class BaseModel(ABC):
             nets = [nets]
         for net in nets:
             if net is not None:
-                for param in net.parameters():
-                    param.requires_grad = requires_grad
+                for pname, param in net.named_parameters():
+                    if requires_grad and getattr(self.opt, "use_lora", False):
+                        # In LoRA mode, keep only adapters + FiLM trainable.
+                        is_lora = "lora_" in pname
+                        is_film = ("film" in pname.lower()) or ("embed" in pname.lower()) or ("to_gamma_beta" in pname.lower())
+                        param.requires_grad = is_lora or is_film
+                    else:
+                        param.requires_grad = requires_grad
 
     def init_networks(self, init_type="normal", init_gain=0.02):
         """Initialize all networks: 1. move to device; 2. initialize weights

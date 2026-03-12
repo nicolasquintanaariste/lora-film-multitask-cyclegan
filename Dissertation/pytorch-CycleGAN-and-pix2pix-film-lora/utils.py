@@ -202,15 +202,35 @@ def inspect_trainable(model, name="model"):
     film = 0
     base = 0
 
-    for n, p in model.named_parameters():
+    # Support both plain nn.Module and wrapper-style models (e.g., BaseModel with net* attributes).
+    if hasattr(model, "named_parameters"):
+        param_iter = model.named_parameters()
+    elif hasattr(model, "model_names"):
+        pairs = []
+        for net_name in getattr(model, "model_names", []):
+            if not isinstance(net_name, str):
+                continue
+            net = getattr(model, f"net{net_name}", None)
+            if net is None:
+                continue
+            for n, p in net.named_parameters():
+                pairs.append((f"net{net_name}.{n}", p))
+        param_iter = pairs
+    else:
+        raise TypeError(
+            "inspect_trainable expects either a torch.nn.Module or a model wrapper with `model_names` and `net*` attributes."
+        )
+
+    for n, p in param_iter:
         total += p.numel()
 
         if p.requires_grad:
             trainable += p.numel()
 
-            if "lora_" in n.lower():
+            n_lower = n.lower()
+            if "lora_" in n_lower:
                 lora += p.numel()
-            elif "film" in n.lower() or "embed" in n.lower():
+            elif "film" in n_lower or "embed" in n_lower or "to_gamma_beta" in n_lower:
                 film += p.numel()
             else:
                 base += p.numel()
