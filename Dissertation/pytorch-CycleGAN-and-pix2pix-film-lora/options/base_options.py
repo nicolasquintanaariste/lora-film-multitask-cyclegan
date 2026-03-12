@@ -54,6 +54,7 @@ class BaseOptions:
         parser.add_argument('--use_lora', action='store_true',help='attach low-rank adapters to each conv/linear for finetuning')
         parser.add_argument('--lora_rank', type=int, default=4, help='rank of the LoRA update')
         parser.add_argument("--pretrained_dir", type=str, help="pretrained models are loaded from here for LoRA") #remember to also set load_iter
+        parser.add_argument("--max_iters_mode", type=str, default="avg", help="Sets the mode in which the max number of iterations is calculated for multitask training. [max | min | avg ]")
         # additional parameters
         parser.add_argument("--epoch", type=str, default="latest", help="which epoch to load? set to latest to use latest cached model")
         parser.add_argument("--load_iter", type=int, default="0", help="which iteration to load? if load_iter > 0, the code will load models by iter_[load_iter]; otherwise, the code will load models by [epoch]")

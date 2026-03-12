@@ -56,7 +56,7 @@ class MultitaskUnalignedDataset(BaseDataset):
         As we have two datasets with potentially different number of images,
         we take a maximum of
         """
-        return self.max_iters * len(self._tid_cycle)
+        return self.max_iters
 
 class UnalignedDatasetTask(BaseDataset):
     def __init__(self, opt, task):
