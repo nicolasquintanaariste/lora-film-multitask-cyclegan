@@ -155,6 +155,8 @@ def define_G(input_nc, output_nc, ngf, netG, norm="batch", use_dropout=False, in
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
     elif netG == "resnet_9blocks_film":
         net = ResnetGeneratorFiLM(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, num_tasks=num_tasks)
+    elif netG == "resnet_12blocks_film":
+            net = ResnetGeneratorFiLM(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=12, num_tasks=num_tasks)
     elif netG == "unet_128":
         net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     elif netG == "unet_256":
