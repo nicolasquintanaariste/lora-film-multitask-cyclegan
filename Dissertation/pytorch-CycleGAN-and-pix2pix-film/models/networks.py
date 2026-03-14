@@ -131,7 +131,7 @@ def init_net(net, init_type="normal", init_gain=0.02):
     return net
 
 
-def define_G(input_nc, output_nc, ngf, netG, norm="batch", use_dropout=False, init_type="normal", init_gain=0.02, num_tasks=None):
+def define_G(input_nc, output_nc, ngf, netG, norm="batch", use_dropout=False, init_type="normal", init_gain=0.02, num_tasks=None, film_emb_dim=64):
     """Create a generator
 
     Parameters:

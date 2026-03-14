@@ -32,6 +32,7 @@ class BaseOptions:
         parser.add_argument("--ndf", type=int, default=64, help="# of discrim filters in the first conv layer")
         parser.add_argument("--netD", type=str, default="basic", help="specify discriminator architecture [basic | n_layers | pixel | basic_film | n_layers_film | pixel_film]. The basic model is a 70x70 PatchGAN. n_layers allows you to specify the layers in the discriminator")
         parser.add_argument("--netG", type=str, default="resnet_9blocks", help="specify generator architecture [resnet_9blocks | resnet_6blocks | resnet_9_blocks_film | unet_256 | unet_128]")
+        parser.add_argument("--film_emb_dim", type=int, default=64, help="sets the size of the FiLM embedding for task conditioning")
         parser.add_argument("--n_layers_D", type=int, default=3, help="only used if netD==n_layers")
         parser.add_argument("--norm", type=str, default="instance", help="instance normalization or batch normalization [instance | batch | none | syncbatch]")
         parser.add_argument("--init_type", type=str, default="normal", help="network initialization [normal | xavier | kaiming | orthogonal]")
