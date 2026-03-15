@@ -36,7 +36,7 @@ def save_hyperparameters(opt, save_path):
 
     out_path = os.path.join(details_dir, "hyperparams.json")
     with open(out_path, "w") as f:
-        json.dump(vars(opt), f, indent=4)
+        json.dump(vars(opt), f, indent=4, default=str)
         
 def save_model_checkpoints(checkpoint_folder, epoch, G_AB, G_BA, D_A, D_B):
         # Remove previous checkpoints

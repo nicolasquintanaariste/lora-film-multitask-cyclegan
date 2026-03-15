@@ -162,7 +162,9 @@ if __name__ == "__main__":
                 # "lora": opt.lora is not None,
                 # "parameter_counts": param_summary,
                 "timings": timer.as_dict(),
+                
             }
             save_run_summary(local_model_folder, summary)
+            save_hyperparameters(opt, local_model_folder)
 
     cleanup_ddp()

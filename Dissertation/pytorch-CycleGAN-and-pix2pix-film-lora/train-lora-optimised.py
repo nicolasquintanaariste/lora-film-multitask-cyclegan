@@ -160,5 +160,6 @@ if __name__ == "__main__":
                 "timings": timer.as_dict(),
             }
             save_run_summary(local_model_folder, summary)
+            save_hyperparameters(opt, local_model_folder)
 
     cleanup_ddp()
