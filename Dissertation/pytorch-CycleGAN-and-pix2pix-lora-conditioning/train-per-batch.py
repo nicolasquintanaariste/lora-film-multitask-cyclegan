@@ -42,7 +42,7 @@ if __name__ == "__main__":
     # dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     
     # Multitask datasets
-    if "film" or "lora" in opt.netG.lower():
+    if ("film" in opt.netG.lower()) or ("lora" in opt.netG.lower()) or ("film" in opt.netD.lower()):
         opt.dataset_mode = "film"
     task2id = {t: i for i, t in enumerate(opt.tasks)}
     task_datasets = {}
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor
   
     # Saving normalised images of datasets for FID evaluation
-    fid_evaluator = FIDEvaluator(opt, transforms_, Tensor, f"results/{opt.name}")
+    fid_evaluator = FIDEvaluator(opt, transforms_, Tensor, f"results/{opt.name}", task2id=task2id)
     fid_evaluator.prep_real(timer)
     
     model = create_model(opt)  # create a model given opt.model and other options

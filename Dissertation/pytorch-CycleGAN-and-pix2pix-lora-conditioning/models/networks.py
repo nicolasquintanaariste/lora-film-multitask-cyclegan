@@ -158,6 +158,9 @@ def define_G(input_nc, output_nc, ngf, netG, norm="batch", use_dropout=False, in
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
     elif netG == "resnet_9blocks_film":
         net = ResnetGeneratorFiLM(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, num_tasks=num_tasks)
+    elif netG == "resnet_12blocks_lora":
+        net = ResnetGeneratorLoRA(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=12,
+                                  num_tasks=num_tasks or 1, lora_rank=lora_rank)
     elif netG == "resnet_9blocks_lora":
         net = ResnetGeneratorLoRA(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9,
                                   num_tasks=num_tasks or 1, lora_rank=lora_rank)
@@ -615,11 +618,11 @@ class ResnetGeneratorLoRA(nn.Module):
 
     Architecture
     ────────────
-    stem        : 7×7 conv  (shared, no LoRA)
-    down ×2     : stride-2 conv  (shared, no LoRA)
-    blocks ×N   : ResnetBlockLoRA  — shared backbone convs + per-task delta
-    up ×2       : ConvTranspose2d  (shared, no LoRA)
-    head        : 7×7 conv + Tanh  (shared, no LoRA)
+    stem        : 7x7 conv  (shared, no LoRA)
+    down x2     : stride-2 conv  (shared, no LoRA)
+    blocks xN   : ResnetBlockLoRA  — shared backbone convs + per-task delta
+    up x2       : ConvTranspose2d  (shared, no LoRA)
+    head        : 7x7 conv + Tanh  (shared, no LoRA)
 
     All backbone parameters receive gradients from every task at every step.
     Each task's LoRA adapters only receive gradients when that task is active.
