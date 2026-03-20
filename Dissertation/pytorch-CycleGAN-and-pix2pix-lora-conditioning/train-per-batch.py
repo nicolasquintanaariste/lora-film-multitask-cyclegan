@@ -139,16 +139,17 @@ if __name__ == "__main__":
                 model.save_networks("latest")
                 model.save_networks(epoch)
                 
-            # Plot FID
-            if (epoch-1) % opt.fid_freq == 0: #opt.fid_interval == 0:
-                fid_evaluator.evaluate(epoch, model.netG_A, model.netG_B, timer)
-                    
             # Generate samples and plot losses
             if epoch % 1 == 0: #opt.sample_interval == 0:
                 with timer.track("sample_images/compute"):
                     sample_images(epoch, opt, model.netG_A, model.netG_B, task2id, image_folder, Tensor)
                     sample_images(epoch, opt, model.netG_A, model.netG_B, task2id, image_folder, Tensor, 42)
                     plot_losses(logger, out_path=loss_plot_path, smooth_alpha=0.1, last_n=None, show=False)            
+
+            # Plot FID
+            if (epoch-1) % opt.fid_freq == 0: #opt.fid_interval == 0:
+                fid_evaluator.evaluate(epoch, model.netG_A, model.netG_B, timer)
+                    
 
             print(f"End of epoch {epoch} / {opt.n_epochs + opt.n_epochs_decay} \t Time Taken: {time.time() - epoch_start_time:.0f} sec")
 
