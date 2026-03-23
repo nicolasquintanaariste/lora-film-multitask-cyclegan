@@ -47,6 +47,12 @@ class BaseOptions:
         parser.add_argument("--load_size", type=int, default=286, help="scale images to this size")
         parser.add_argument("--crop_size", type=int, default=256, help="then crop to this size")
         parser.add_argument("--max_dataset_size", type=int, default=float("inf"), help="Maximum number of samples allowed per dataset. If the dataset directory contains more than max_dataset_size, only a subset is loaded.")
+        parser.add_argument(
+            "--max_dataset_size_by_task",
+            nargs="+",
+            default=None,
+            help="Optional per-task dataset caps as TASK=SIZE pairs, e.g. horse2zebra=50 monet2photo=200. Tasks not listed fall back to --max_dataset_size.",
+        )
         parser.add_argument("--preprocess", type=str, default="resize_and_crop", help="scaling and cropping of images at load time [resize_and_crop | crop | scale_width | scale_width_and_crop | none]")
         parser.add_argument("--no_flip", action="store_true", help="if specified, do not flip the images for data augmentation")
         parser.add_argument("--display_winsize", type=int, default=256, help="display window size for both visdom and HTML")
@@ -123,6 +129,7 @@ class BaseOptions:
         """Parse our options, create checkpoints directory suffix, and set up gpu device."""
         opt = self.gather_options()
         opt.isTrain = self.isTrain  # train or test
+        opt.max_dataset_size_by_task_map = self.parse_max_dataset_size_by_task(opt.max_dataset_size_by_task)
 
         # process opt.suffix
         if opt.suffix:
@@ -132,3 +139,40 @@ class BaseOptions:
         self.print_options(opt)
         self.opt = opt
         return self.opt
+
+    @staticmethod
+    def parse_max_dataset_size_by_task(raw_entries):
+        """Parse TASK=SIZE entries into a dictionary."""
+        limits = {}
+        if not raw_entries:
+            return limits
+
+        for entry in raw_entries:
+            if "=" not in entry:
+                raise ValueError(
+                    f"Invalid --max_dataset_size_by_task entry '{entry}'. Use TASK=SIZE, e.g. horse2zebra=50"
+                )
+
+            task, size_str = entry.split("=", 1)
+            task = task.strip()
+            size_str = size_str.strip()
+            if not task:
+                raise ValueError(
+                    f"Invalid --max_dataset_size_by_task entry '{entry}'. Task name cannot be empty."
+                )
+
+            try:
+                size = int(size_str)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid --max_dataset_size_by_task entry '{entry}'. SIZE must be an integer."
+                ) from exc
+
+            if size < 0:
+                raise ValueError(
+                    f"Invalid --max_dataset_size_by_task entry '{entry}'. SIZE must be >= 0."
+                )
+
+            limits[task] = size
+
+        return limits
