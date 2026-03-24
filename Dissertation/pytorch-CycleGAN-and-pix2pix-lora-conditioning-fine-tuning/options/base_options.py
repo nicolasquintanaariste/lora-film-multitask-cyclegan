@@ -1,4 +1,5 @@
 import argparse
+import json
 from pathlib import Path
 from util import util
 import torch
@@ -38,7 +39,7 @@ class BaseOptions:
         parser.add_argument("--init_gain", type=float, default=0.02, help="scaling factor for normal, xavier and orthogonal.")
         parser.add_argument("--no_dropout", action="store_true", help="no dropout for the generator")
         # dataset parameters
-        parser.add_argument("--tasks", nargs="+", default=None, help="List of tasks/datasets to train on (space-separated)") # Multitask training parameters (FiLM)
+        parser.add_argument("--tasks", nargs="+", default=None, help="List of tasks/datasets to train on (space-separated). If omitted and --pretrained_dir is set, tasks are loaded from hyperparams.json.") # Multitask training parameters (FiLM)
         parser.add_argument("--dataset_mode", type=str, default="unaligned", help="chooses how datasets are loaded. [unaligned | aligned | single | colorization]")
         parser.add_argument("--direction", type=str, default="AtoB", help="AtoB or BtoA")
         parser.add_argument("--serial_batches", action="store_true", help="if true, takes images in order to make batches, otherwise takes them randomly")
@@ -62,7 +63,7 @@ class BaseOptions:
         parser.add_argument("--pretrained_dir", type=str, help="pretrained models are loaded from here for LoRA") #remember to also set load_iter
         parser.add_argument('--finetune_lora', type=str, default=None, metavar='TASK',
             help='Task name to fine-tune a new LoRA adapter for (e.g. --finetune_lora monet2photo). '
-                 'Pass ALL tasks (old + new) in --tasks so the architecture matches; '
+                 'Pass ALL tasks (old + new) in --tasks so the architecture matches; if omitted, tasks are loaded from pretrained metadata. '
                  'the named task must appear in --tasks. '
                  'Point --pretrained_dir at the multi-task LoRA checkpoint.')
         parser.add_argument("--max_iters_mode", type=str, default="avg", help="Sets the mode in which the max number of iterations is calculated for multitask training. [max | min | avg ]")
@@ -134,6 +135,7 @@ class BaseOptions:
         """Parse our options, create checkpoints directory suffix, and set up gpu device."""
         opt = self.gather_options()
         opt.isTrain = self.isTrain  # train or test
+        opt.tasks = self.resolve_tasks(opt.tasks, opt.pretrained_dir, opt.finetune_lora)
         opt.max_dataset_size_by_task_map = self.parse_max_dataset_size_by_task(opt.max_dataset_size_by_task)
 
         # process opt.suffix
@@ -144,6 +146,62 @@ class BaseOptions:
         self.print_options(opt)
         self.opt = opt
         return self.opt
+
+    @staticmethod
+    def resolve_tasks(tasks, pretrained_dir, finetune_lora=None):
+        """Resolve task list, optionally loading it from pretrained run metadata."""
+        if tasks:
+            resolved_tasks = list(tasks)
+            if finetune_lora and finetune_lora not in resolved_tasks:
+                resolved_tasks.append(finetune_lora)
+                print(f"[tasks] Appended finetune task '{finetune_lora}' to --tasks.")
+            return resolved_tasks
+
+        if not pretrained_dir:
+            return tasks
+
+        pretrained_path = Path(pretrained_dir)
+        candidate_files = [
+            pretrained_path / "hyperparams.json",
+            pretrained_path / "details" / "hyperparams.json",
+        ]
+
+        for candidate in candidate_files:
+            if not candidate.is_file():
+                continue
+
+            try:
+                with open(candidate, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Failed to parse tasks from '{candidate}': invalid JSON."
+                ) from exc
+
+            loaded_tasks = payload.get("tasks")
+            if not isinstance(loaded_tasks, list) or not loaded_tasks:
+                raise ValueError(
+                    f"File '{candidate}' does not contain a non-empty 'tasks' list."
+                )
+
+            if any(not isinstance(task, str) or not task.strip() for task in loaded_tasks):
+                raise ValueError(
+                    f"File '{candidate}' has invalid task names. Expected non-empty strings."
+                )
+
+            resolved_tasks = list(loaded_tasks)
+            if finetune_lora and finetune_lora not in resolved_tasks:
+                resolved_tasks.append(finetune_lora)
+                print(f"[tasks] Appended finetune task '{finetune_lora}' to loaded tasks.")
+
+            print(f"[tasks] Loaded {len(resolved_tasks)} tasks from '{candidate}'.")
+            return resolved_tasks
+
+        checked_paths = ", ".join(str(p) for p in candidate_files)
+        raise ValueError(
+            "--tasks was not provided, and tasks could not be inferred from pretrained metadata. "
+            f"Checked: {checked_paths}"
+        )
 
     @staticmethod
     def parse_max_dataset_size_by_task(raw_entries):

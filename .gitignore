@@ -85,3 +85,6 @@ wandb/
 # Ignore repositories
 */StarGAN
 */stargan-v2
+
+# Pretrained
+*/pretrained/*

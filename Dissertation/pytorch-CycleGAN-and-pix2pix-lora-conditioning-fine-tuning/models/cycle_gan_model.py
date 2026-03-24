@@ -113,6 +113,15 @@ class CycleGANModel(BaseModel):
                     if any(pfx in n for pfx in new_pfx)
                 ]
                 self.optimizer_G = torch.optim.Adam(g_params, lr=opt.lr, betas=(opt.beta1, 0.999))
+                # --- finetune trainable-param summary (comment out to silence) ---
+                # print(f"[finetune] Task '{opt.finetune_lora}' (idx {new_task_idx}), "
+                #       f"prefixes: {new_pfx}")
+                # for net_name, net in (("G_A", self.netG_A), ("G_B", self.netG_B)):
+                #     names = [n for n, p in net.named_parameters()
+                #              if any(pfx in n for pfx in new_pfx)]
+                #     print(f"  {net_name} trainable ({len(names)}): "
+                #           + (", ".join(names) if names else "<none — check LoRA arch>"))
+                # -----------------------------------------------------------------
             else:
                 self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))

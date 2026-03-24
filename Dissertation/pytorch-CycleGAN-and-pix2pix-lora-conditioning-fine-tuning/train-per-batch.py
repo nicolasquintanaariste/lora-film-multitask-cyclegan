@@ -157,8 +157,7 @@ if __name__ == "__main__":
 
             # Plot FID
             if (epoch-1) % opt.fid_freq == 0: #opt.fid_interval == 0:
-                fid_evaluator.evaluate(epoch, model.netG_A, model.netG_B, timer)
-                    
+                fid_evaluator.evaluate(epoch, model.netG_A, model.netG_B, timer)        
 
             print(f"End of epoch {epoch} / {opt.n_epochs + opt.n_epochs_decay} \t Time Taken: {time.time() - epoch_start_time:.0f} sec")
 
