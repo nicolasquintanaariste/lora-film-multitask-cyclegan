@@ -57,7 +57,7 @@ if __name__ == "__main__":
     else:
         for task in opt.tasks:
             task_datasets[task2id[task]] = create_dataset(opt, task) ### Change opt so that films makes use of FiLM datasets
-    loader = MultiTaskDataLoader(task_datasets, max_iters_mode="avg")
+    loader = MultiTaskDataLoader(task_datasets, max_iters_mode=opt.max_iters_mode)
     print(f"Iters per epoch = {loader.iters_per_epoch}")
     
     ####################################

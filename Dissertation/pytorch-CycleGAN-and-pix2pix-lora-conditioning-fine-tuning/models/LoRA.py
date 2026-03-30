@@ -60,32 +60,44 @@ class MultiTaskLoRA(nn.Module):
         lora_B  — zeros           (delta is 0 at init → identical to backbone)
     """
 
-    def __init__(self, module: nn.Conv2d, rank: int, num_tasks: int):
+    def __init__(self, module: nn.Conv2d, lora_ranks, num_tasks: int):
+        """lora_ranks: int (uniform) or list[int] (one rank per task)."""
         super().__init__()
         if not isinstance(module, nn.Conv2d):
             raise TypeError(
                 f"MultiTaskLoRA only wraps nn.Conv2d, got {type(module).__name__}"
             )
         self.module    = module
-        self.rank      = rank
         self.num_tasks = num_tasks
 
-        if rank > 0 and num_tasks > 0:
+        if isinstance(lora_ranks, int):
+            lora_ranks = [lora_ranks] * num_tasks
+        assert len(lora_ranks) == num_tasks, (
+            f"lora_ranks length {len(lora_ranks)} != num_tasks {num_tasks}"
+        )
+        self.lora_ranks = lora_ranks
+
+        if num_tasks > 0 and any(r > 0 for r in lora_ranks):
             self.lora_As = nn.ModuleList()
             self.lora_Bs = nn.ModuleList()
-            for _ in range(num_tasks):
-                lora_A = nn.Conv2d(
-                    module.in_channels, rank,
-                    kernel_size=module.kernel_size,
-                    stride=module.stride,
-                    padding=module.padding,
-                    dilation=module.dilation,
-                    groups=module.groups,
-                    bias=False,
-                )
-                lora_B = nn.Conv2d(rank, module.out_channels, 1, bias=False)
-                nn.init.kaiming_uniform_(lora_A.weight, a=math.sqrt(5))
-                nn.init.zeros_(lora_B.weight)
+            for rank in lora_ranks:
+                if rank > 0:
+                    lora_A = nn.Conv2d(
+                        module.in_channels, rank,
+                        kernel_size=module.kernel_size,
+                        stride=module.stride,
+                        padding=module.padding,
+                        dilation=module.dilation,
+                        groups=module.groups,
+                        bias=False,
+                    )
+                    lora_B = nn.Conv2d(rank, module.out_channels, 1, bias=False)
+                    nn.init.kaiming_uniform_(lora_A.weight, a=math.sqrt(5))
+                    nn.init.zeros_(lora_B.weight)
+                else:
+                    # rank=0: no adapter for this task; use empty placeholder
+                    lora_A = nn.Sequential()
+                    lora_B = nn.Sequential()
                 self.lora_As.append(lora_A)
                 self.lora_Bs.append(lora_B)
         else:
@@ -98,5 +110,6 @@ class MultiTaskLoRA(nn.Module):
                 t = int(tid.item() if tid.numel() == 1 else tid[0].item())
             else:
                 t = int(tid)
-            out = out + self.lora_Bs[t](self.lora_As[t](x))
+            if self.lora_ranks[t] > 0:
+                out = out + self.lora_Bs[t](self.lora_As[t](x))
         return out

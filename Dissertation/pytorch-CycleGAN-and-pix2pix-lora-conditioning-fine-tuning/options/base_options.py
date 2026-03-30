@@ -60,6 +60,8 @@ class BaseOptions:
         # LoRA
         parser.add_argument('--use_lora', action='store_true',help='attach low-rank adapters to each conv/linear for finetuning')
         parser.add_argument('--lora_rank', type=int, default=4, help='rank of the LoRA update')
+        parser.add_argument('--finetune_lora_rank', type=int, default=None,
+            help='LoRA rank for the finetune task adapter. Defaults to --lora_rank if not set.')
         parser.add_argument("--pretrained_dir", type=str, help="pretrained models are loaded from here for LoRA") #remember to also set load_iter
         parser.add_argument('--finetune_lora', type=str, default=None, metavar='TASK',
             help='Task name to fine-tune a new LoRA adapter for (e.g. --finetune_lora monet2photo). '

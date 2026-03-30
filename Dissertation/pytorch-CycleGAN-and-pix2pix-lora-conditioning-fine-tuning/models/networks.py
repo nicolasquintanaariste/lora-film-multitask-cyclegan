@@ -130,7 +130,7 @@ def init_net(net, init_type="normal", init_gain=0.02):
     return net
 
 
-def define_G(input_nc, output_nc, ngf, netG, norm="batch", use_dropout=False, init_type="normal", init_gain=0.02, num_tasks=None, lora_rank=4):
+def define_G(input_nc, output_nc, ngf, netG, norm="batch", use_dropout=False, init_type="normal", init_gain=0.02, num_tasks=None, lora_ranks=4):
     """Create a generator
 
     Parameters:
@@ -145,7 +145,8 @@ def define_G(input_nc, output_nc, ngf, netG, norm="batch", use_dropout=False, in
         init_type (str)    -- the name of our initialization method.
         init_gain (float)  -- scaling factor for normal, xavier and orthogonal.
         num_tasks (int)    -- number of tasks for multi-task conditioning (FiLM / LoRA).
-        lora_rank (int)    -- rank of per-task LoRA adapters (used by *_lora variants).
+        lora_ranks (int or list[int]) -- rank(s) of per-task LoRA adapters (used by *_lora variants).
+                               Pass a list to use different ranks per task.
 
     Returns a generator
     """
@@ -160,16 +161,16 @@ def define_G(input_nc, output_nc, ngf, netG, norm="batch", use_dropout=False, in
         net = ResnetGeneratorFiLM(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, num_tasks=num_tasks)
     elif netG == "resnet_15blocks_lora":
         net = ResnetGeneratorLoRA(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=12,
-                                  num_tasks=num_tasks or 1, lora_rank=lora_rank)
+                                  num_tasks=num_tasks or 1, lora_ranks=lora_ranks)
     elif netG == "resnet_12blocks_lora":
         net = ResnetGeneratorLoRA(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=12,
-                                  num_tasks=num_tasks or 1, lora_rank=lora_rank)
+                                  num_tasks=num_tasks or 1, lora_ranks=lora_ranks)
     elif netG == "resnet_9blocks_lora":
         net = ResnetGeneratorLoRA(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9,
-                                  num_tasks=num_tasks or 1, lora_rank=lora_rank)
+                                  num_tasks=num_tasks or 1, lora_ranks=lora_ranks)
     elif netG == "resnet_6blocks_lora":
         net = ResnetGeneratorLoRA(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6,
-                                  num_tasks=num_tasks or 1, lora_rank=lora_rank)
+                                  num_tasks=num_tasks or 1, lora_ranks=lora_ranks)
     elif netG == "unet_128":
         net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     elif netG == "unet_256":
@@ -577,7 +578,7 @@ class ResnetBlockLoRA(nn.Module):
     """
 
     def __init__(self, dim, padding_type, norm_layer, use_dropout, use_bias,
-                 num_tasks=1, lora_rank=4):
+                 num_tasks=1, lora_ranks=4):
         super().__init__()
         p = 0
         if padding_type == "reflect":
@@ -596,10 +597,10 @@ class ResnetBlockLoRA(nn.Module):
         base_conv1 = nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias)
         base_conv2 = nn.Conv2d(dim, dim, kernel_size=3, padding=p, bias=use_bias)
 
-        self.conv1  = MultiTaskLoRA(base_conv1, lora_rank, num_tasks)
+        self.conv1  = MultiTaskLoRA(base_conv1, lora_ranks, num_tasks)
         self.norm1  = norm_layer(dim)
         self.relu   = nn.ReLU(True)
-        self.conv2  = MultiTaskLoRA(base_conv2, lora_rank, num_tasks)
+        self.conv2  = MultiTaskLoRA(base_conv2, lora_ranks, num_tasks)
         self.norm2  = norm_layer(dim)
         self.dropout = nn.Dropout(0.5) if use_dropout else None
 
@@ -633,7 +634,7 @@ class ResnetGeneratorLoRA(nn.Module):
 
     def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d,
                  use_dropout=False, n_blocks=9, padding_type="reflect",
-                 num_tasks=1, lora_rank=4):
+                 num_tasks=1, lora_ranks=4):
         assert n_blocks >= 0
         super().__init__()
         if type(norm_layer) == functools.partial:
@@ -667,7 +668,7 @@ class ResnetGeneratorLoRA(nn.Module):
         mult = 2 ** n_downsampling
         self.blocks = nn.ModuleList([
             ResnetBlockLoRA(ngf * mult, padding_type, norm_layer,
-                            use_dropout, use_bias, num_tasks, lora_rank)
+                            use_dropout, use_bias, num_tasks, lora_ranks)
             for _ in range(n_blocks)
         ])
 

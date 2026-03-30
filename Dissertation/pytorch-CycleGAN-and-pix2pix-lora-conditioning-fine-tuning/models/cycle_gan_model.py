@@ -85,8 +85,18 @@ class CycleGANModel(BaseModel):
         # Code (vs. paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
         num_tasks = len(opt.tasks) if opt.tasks else None
         lora_rank = getattr(opt, "lora_rank", 4)
-        self.netG_A = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, num_tasks, lora_rank)
-        self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, num_tasks, lora_rank)
+        # Build per-task rank list: existing tasks use lora_rank, finetune task uses finetune_lora_rank.
+        if num_tasks is not None:
+            ft_rank = getattr(opt, 'finetune_lora_rank', None) or lora_rank
+            ft_task = getattr(opt, 'finetune_lora', None)
+            lora_ranks = [
+                ft_rank if (ft_task and task == ft_task) else lora_rank
+                for task in opt.tasks
+            ]
+        else:
+            lora_ranks = lora_rank
+        self.netG_A = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, num_tasks, lora_ranks)
+        self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, num_tasks, lora_ranks)
 
         if self.isTrain:  # define discriminators
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD, opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, num_tasks)
@@ -103,15 +113,18 @@ class CycleGANModel(BaseModel):
             self.criterionIdt = torch.nn.L1Loss()
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             if getattr(opt, 'finetune_lora', None):
-                # Only optimise the named task's LoRA adapter; everything else is frozen.
+                # Freeze everything except the new task's LoRA adapter to save memory and compute.
                 new_task_idx = opt.tasks.index(opt.finetune_lora)
                 new_pfx = (f"lora_As.{new_task_idx}.", f"lora_Bs.{new_task_idx}.")
-                g_params = [
-                    p for n, p in itertools.chain(
-                        self.netG_A.named_parameters(), self.netG_B.named_parameters()
-                    )
-                    if any(pfx in n for pfx in new_pfx)
-                ]
+                g_params = []
+                for n, p in itertools.chain(
+                    self.netG_A.named_parameters(), self.netG_B.named_parameters()
+                ):
+                    if any(pfx in n for pfx in new_pfx):
+                        p.requires_grad = True
+                        g_params.append(p)
+                    else:
+                        p.requires_grad = False
                 self.optimizer_G = torch.optim.Adam(g_params, lr=opt.lr, betas=(opt.beta1, 0.999))
                 # --- finetune trainable-param summary (comment out to silence) ---
                 # print(f"[finetune] Task '{opt.finetune_lora}' (idx {new_task_idx}), "
