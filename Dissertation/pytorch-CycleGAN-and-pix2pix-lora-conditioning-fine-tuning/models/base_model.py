@@ -394,12 +394,42 @@ class BaseModel(ABC):
         for name in self.model_names:
             if isinstance(name, str):
                 net = getattr(self, "net" + name)
-                num_params = 0
-                for param in net.parameters():
-                    num_params += param.numel()
+                total = sum(p.numel() for p in net.parameters())
                 if verbose:
                     print(net)
-                print(f"[Network {name}] Total number of parameters : {num_params / 1e6:.3f} M")
+
+                # Categorise parameters by component
+                lora_by_task = {}
+                film_params = 0
+                backbone_params = 0
+                for n, p in net.named_parameters():
+                    numel = p.numel()
+                    if "lora_As" in n or "lora_Bs" in n:
+                        # extract task index from e.g. "blocks.0.conv1.lora_As.2.weight"
+                        for part in n.split("."):
+                            if part.isdigit() and ("lora_As" in n or "lora_Bs" in n):
+                                # find the index after lora_As/lora_Bs
+                                segs = n.split(".")
+                                for i, s in enumerate(segs):
+                                    if s in ("lora_As", "lora_Bs") and i + 1 < len(segs):
+                                        tid = int(segs[i + 1])
+                                        lora_by_task[tid] = lora_by_task.get(tid, 0) + numel
+                                        break
+                                break
+                    elif "film" in n.lower() or "gamma" in n or "beta" in n:
+                        film_params += numel
+                    else:
+                        backbone_params += numel
+
+                lines = [f"[Network {name}] Total: {total / 1e6:.3f} M"]
+                lines.append(f"  backbone : {backbone_params / 1e6:.3f} M")
+                if lora_by_task:
+                    total_lora = sum(lora_by_task.values())
+                    task_str = "  |  ".join(f"task {t}: {v/1e3:.1f} K" for t, v in sorted(lora_by_task.items()))
+                    lines.append(f"  LoRA     : {total_lora / 1e6:.3f} M  ({task_str})")
+                if film_params:
+                    lines.append(f"  FiLM     : {film_params / 1e6:.3f} M")
+                print("\n".join(lines))
         print("-----------------------------------------------")
 
     def set_requires_grad(self, nets, requires_grad=False):
