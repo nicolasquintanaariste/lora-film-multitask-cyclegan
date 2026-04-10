@@ -174,6 +174,14 @@ def sample_images(epoch, opt, G_AB, G_BA, task2id, image_folder, Tensor, seed=No
             os.path.join(image_folder, f"{task}_{epoch}_standard.png" if seed else f"{task}_{epoch}.png"),
             normalize=False
         )
+        # Save individual real images once (they are fixed across epochs)
+        label = "standard" if seed else "random"
+        real_dir = os.path.join(image_folder, f"real_{label}", task)
+        if not os.path.isdir(real_dir):
+            os.makedirs(real_dir, exist_ok=True)
+            for i, (img_A, img_B) in enumerate(zip(real_A, real_B)):
+                save_image(img_A * 0.5 + 0.5, os.path.join(real_dir, f"A_{i:02d}.png"))
+                save_image(img_B * 0.5 + 0.5, os.path.join(real_dir, f"B_{i:02d}.png"))
     
 def infer(loader, G_AB, G_BA, Tensor, tid=None):
     G_AB.eval()
