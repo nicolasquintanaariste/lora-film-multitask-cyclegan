@@ -160,7 +160,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm="batch", use_dropout=False, in
     elif netG == "resnet_9blocks_film":
         net = ResnetGeneratorFiLM(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, num_tasks=num_tasks)
     elif netG == "resnet_15blocks_lora":
-        net = ResnetGeneratorLoRA(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=12,
+        net = ResnetGeneratorLoRA(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=15,
                                   num_tasks=num_tasks or 1, lora_ranks=lora_ranks)
     elif netG == "resnet_12blocks_lora":
         net = ResnetGeneratorLoRA(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=12,

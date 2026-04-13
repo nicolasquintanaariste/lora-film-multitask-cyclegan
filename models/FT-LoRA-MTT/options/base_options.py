@@ -21,7 +21,7 @@ class BaseOptions:
     def initialize(self, parser):
         """Define the common options that are used in both training and test."""
         # basic parameters
-        parser.add_argument("--dataroot", required=True, help="path to images (should have subfolders trainA, trainB, valA, valB, etc)")
+        parser.add_argument("--dataroot", default=None, help="path to images (should have subfolders trainA, trainB, valA, valB, etc)")
         parser.add_argument("--dataroot_general", required=True, help="general path to images without specifying task (should have subfolders trainA, trainB, valA, valB, etc)")
         parser.add_argument("--name", type=str, default="experiment_name", help="name of the experiment. It decides where to store samples and models")
         parser.add_argument("--checkpoints_dir", type=str, default="./checkpoints", help="models are saved here")
@@ -137,6 +137,8 @@ class BaseOptions:
         """Parse our options, create checkpoints directory suffix, and set up gpu device."""
         opt = self.gather_options()
         opt.isTrain = self.isTrain  # train or test
+        if opt.dataroot is None and not getattr(opt, 'dataroot_general', None):
+            self.parser.error('--dataroot is required when --dataroot_general is not provided.')
         opt.tasks = self.resolve_tasks(opt.tasks, opt.pretrained_dir, opt.finetune_lora)
         opt.max_dataset_size_by_task_map = self.parse_max_dataset_size_by_task(opt.max_dataset_size_by_task)
 
