@@ -10,7 +10,7 @@ Images in each folder are sorted by filename and must be in 1-to-1
 correspondence (same count, same order).
 
 Output grid rows (top to bottom):
-  real_A  |  fake_B  |  real_B  |  fake_A
+  real_A  |  fake_A  |  real_B  |  fake_B
 
 Usage:
   python generate_grid.py                        # saves sample_grid.png next to this script
@@ -59,21 +59,21 @@ def main():
     args = parser.parse_args()
 
     real_A    = load_images_sorted(os.path.join(args.root, "A_real"),      args.n)
-    fake_B    = load_images_sorted(os.path.join(args.root, "B_generated"), args.n)
-    real_B    = load_images_sorted(os.path.join(args.root, "B_real"),      args.n)
     fake_A    = load_images_sorted(os.path.join(args.root, "A_generated"), args.n)
+    real_B    = load_images_sorted(os.path.join(args.root, "B_real"),      args.n)
+    fake_B    = load_images_sorted(os.path.join(args.root, "B_generated"), args.n)
 
-    n = min(len(real_A), len(fake_B), len(real_B), len(fake_A))
-    real_A, fake_B, real_B, fake_A = real_A[:n], fake_B[:n], real_B[:n], fake_A[:n]
+    n = min(len(real_A), len(fake_A), len(real_B), len(fake_B))
+    real_A, fake_A, real_B, fake_B = real_A[:n], fake_A[:n], real_B[:n], fake_B[:n]
     print(f"Using {n} images per row.")
 
     # Build one wide grid per row, then stack rows vertically
     real_A_grid = make_grid(real_A, nrow=n, normalize=True, padding=2)
-    fake_B_grid = make_grid(fake_B, nrow=n, normalize=True, padding=2)
-    real_B_grid = make_grid(real_B, nrow=n, normalize=True, padding=2)
     fake_A_grid = make_grid(fake_A, nrow=n, normalize=True, padding=2)
+    real_B_grid = make_grid(real_B, nrow=n, normalize=True, padding=2)
+    fake_B_grid = make_grid(fake_B, nrow=n, normalize=True, padding=2)
 
-    image_grid = torch.cat((real_A_grid, fake_B_grid, real_B_grid, fake_A_grid), dim=1)
+    image_grid = torch.cat((real_A_grid, fake_A_grid, real_B_grid, fake_B_grid), dim=1)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     save_image(image_grid, args.out, normalize=False)

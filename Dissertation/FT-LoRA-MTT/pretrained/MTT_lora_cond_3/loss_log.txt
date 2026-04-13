@@ -1,0 +1,25 @@
+================ Training Loss (Fri Mar 20 14:45:56 2026) ================
+[Rank 0] (epoch: 1, iters: 2, time: 13.822, data: 7.260) , G: 23.619, D: 12.159, cycle: 12.496, adversarial: 4.857, idt: 6.265, D_A: 8.250, G_A: 3.094, cycle_A: 6.059, idt_A: 3.241, D_B: 3.909, G_B: 1.763, cycle_B: 6.437, idt_B: 3.025
+
+[Rank 0] (epoch: 1, iters: 4, time: 13.565, data: 7.385) , G: 23.656, D: 7.559, cycle: 13.655, adversarial: 3.541, idt: 6.460, D_A: 3.280, G_A: 1.803, cycle_A: 8.326, idt_A: 2.573, D_B: 4.279, G_B: 1.738, cycle_B: 5.329, idt_B: 3.887
+
+[Rank 0] (epoch: 2, iters: 2, time: 14.280, data: 0.001) , G: 20.614, D: 8.122, cycle: 8.724, adversarial: 7.445, idt: 4.445, D_A: 6.305, G_A: 5.468, cycle_A: 4.483, idt_A: 2.186, D_B: 1.817, G_B: 1.977, cycle_B: 4.240, idt_B: 2.259
+
+[Rank 0] (epoch: 2, iters: 4, time: 14.237, data: 0.000) , G: 14.771, D: 5.035, cycle: 8.217, adversarial: 2.441, idt: 4.113, D_A: 2.031, G_A: 1.097, cycle_A: 4.127, idt_A: 2.028, D_B: 3.004, G_B: 1.344, cycle_B: 4.090, idt_B: 2.085
+
+================ Training Loss (Mon Mar 23 01:25:41 2026) ================
+================ Training Loss (Mon Mar 23 01:26:12 2026) ================
+[Rank 0] (epoch: 1, iters: 2, time: 13.943, data: 7.794) , G: 29.443, D: 14.009, cycle: 14.021, adversarial: 8.503, idt: 6.918, D_A: 4.506, G_A: 4.972, cycle_A: 7.197, idt_A: 3.390, D_B: 9.503, G_B: 3.531, cycle_B: 6.824, idt_B: 3.528
+
+[Rank 0] (epoch: 2, iters: 1, time: 13.323, data: 7.391) , G: 22.534, D: 6.132, cycle: 12.850, adversarial: 3.184, idt: 6.499, D_A: 2.837, G_A: 1.795, cycle_A: 7.491, idt_A: 2.714, D_B: 3.294, G_B: 1.389, cycle_B: 5.359, idt_B: 3.786
+
+[Rank 0] (epoch: 2, iters: 3, time: 14.663, data: 0.001) , G: 20.837, D: 8.627, cycle: 9.439, adversarial: 6.572, idt: 4.825, D_A: 4.820, G_A: 4.956, cycle_A: 5.101, idt_A: 2.228, D_B: 3.807, G_B: 1.616, cycle_B: 4.338, idt_B: 2.597
+
+[Rank 0] (epoch: 3, iters: 2, time: 14.148, data: 1.709) , G: 16.967, D: 6.591, cycle: 8.873, adversarial: 3.586, idt: 4.508, D_A: 4.601, G_A: 1.701, cycle_A: 4.329, idt_A: 2.312, D_B: 1.989, G_B: 1.884, cycle_B: 4.545, idt_B: 2.196
+
+[Rank 0] (epoch: 4, iters: 1, time: 13.395, data: 0.000) , G: 24.220, D: 5.993, cycle: 14.416, adversarial: 2.769, idt: 7.034, D_A: 2.060, G_A: 1.265, cycle_A: 8.782, idt_A: 2.845, D_B: 3.933, G_B: 1.504, cycle_B: 5.634, idt_B: 4.189
+
+[Rank 0] (epoch: 4, iters: 3, time: 13.185, data: 0.001) , G: 13.132, D: 2.535, cycle: 7.015, adversarial: 2.697, idt: 3.419, D_A: 1.473, G_A: 1.489, cycle_A: 3.705, idt_A: 1.666, D_B: 1.062, G_B: 1.208, cycle_B: 3.310, idt_B: 1.753
+
+[Rank 0] (epoch: 5, iters: 2, time: 16.100, data: 0.000) , G: 12.319, D: 3.181, cycle: 6.876, adversarial: 1.890, idt: 3.553, D_A: 1.555, G_A: 1.024, cycle_A: 3.440, idt_A: 1.760, D_B: 1.626, G_B: 0.866, cycle_B: 3.437, idt_B: 1.793
+
