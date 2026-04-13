@@ -1,0 +1,62 @@
+
+📁 cat2dog_reduced
+  trainA: 1200
+  testB: 500
+  trainB: 1200
+  testA: 500T
+
+📁 cheetah2leopard
+  trainA: 538
+  testB: 210
+  trainB: 838
+  testA: 135
+
+📁 fox2wolf
+  trainA: 404
+  testB: 93
+  trainB: 369
+  testA: 102
+
+📁 tiger2lion
+  trainA: 967
+  testB: 268
+  trainB: 1072
+  testA: 242
+
+📁 wolf2dog
+  trainA: 369
+  testB: 500
+  trainB: 1200
+  testA: 93
+
+📁 horse2zebra
+  trainA: 1067
+  testB: 140
+  trainB: 1334
+  testA: 120
+
+📁 day2night
+  trainA: 521
+  testB: 81
+  trainB: 216
+  testA: 218
+
+📁 monet2photo
+
+📁 summer2winter_yosemite
+  trainA: 1231
+  testB: 238
+  trainB: 962
+  testA: 309
+
+📁 apple2orange
+  trainA: 995
+  testB: 248
+  trainB: 1019
+  testA: 266
+
+📁 cat2dog
+  trainA: 5153
+  testB: 500
+  trainB: 4739
+  testA: 500
