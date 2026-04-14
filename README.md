@@ -111,6 +111,8 @@ pip install -r requirements.txt
 
 ## Quick Start
 
+> **Recommended:** The easiest way to run everything is via [`main.ipynb`](main.ipynb), which is designed to run on **Google Colab**. It covers the full workflow — data download, and training all four models (STT, FiLM-MTT, LoRA-MTT, FT-LoRA-MTT) — with all paths and commands pre-configured. Just open it in Colab, mount your Drive, and run the relevant sections.
+
 ### 1️⃣ Basic CycleGAN Training
 
 ```bash
