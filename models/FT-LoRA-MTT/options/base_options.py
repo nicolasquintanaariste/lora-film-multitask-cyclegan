@@ -39,7 +39,7 @@ class BaseOptions:
         parser.add_argument("--init_gain", type=float, default=0.02, help="scaling factor for normal, xavier and orthogonal.")
         parser.add_argument("--no_dropout", action="store_true", help="no dropout for the generator")
         # dataset parameters
-        parser.add_argument("--tasks", nargs="+", default=None, help="List of tasks/datasets to train on (space-separated). If omitted and --pretrained_dir is set, tasks are loaded from hyperparams.json.") # Multitask training parameters (FiLM)
+        parser.add_argument("--tasks", nargs="+", default=None, help="List of tasks/datasets to train on (space-separated). If omitted and --pretrained_name is set, tasks are loaded from results/{pretrained_name}/details/hyperparams.json.") # Multitask training parameters (FiLM)
         parser.add_argument("--dataset_mode", type=str, default="unaligned", help="chooses how datasets are loaded. [unaligned | aligned | single | colorization]")
         parser.add_argument("--direction", type=str, default="AtoB", help="AtoB or BtoA")
         parser.add_argument("--serial_batches", action="store_true", help="if true, takes images in order to make batches, otherwise takes them randomly")
@@ -62,12 +62,15 @@ class BaseOptions:
         parser.add_argument('--lora_rank', type=int, default=4, help='rank of the LoRA update')
         parser.add_argument('--finetune_lora_rank', type=int, default=None,
             help='LoRA rank for the finetune task adapter. Defaults to --lora_rank if not set.')
-        parser.add_argument("--pretrained_dir", type=str, help="pretrained models are loaded from here for LoRA") #remember to also set load_iter
+        parser.add_argument("--pretrained_name", type=str, default=None,
+            help="Name of the pretrained model. Checkpoint weights are loaded from "
+                 "{checkpoints_dir}/{pretrained_name}/ and training details are read from "
+                 "results/{pretrained_name}/details/hyperparams.json.")
         parser.add_argument('--finetune_lora', type=str, default=None, metavar='TASK',
             help='Task name to fine-tune a new LoRA adapter for (e.g. --finetune_lora monet2photo). '
                  'Pass ALL tasks (old + new) in --tasks so the architecture matches; if omitted, tasks are loaded from pretrained metadata. '
-                 'the named task must appear in --tasks. '
-                 'Point --pretrained_dir at the multi-task LoRA checkpoint.')
+                 'The named task must appear in --tasks. '
+                 'Use --pretrained_name to point at the multi-task LoRA checkpoint.')
         parser.add_argument("--max_iters_mode", type=str, default="avg", help="Sets the mode in which the max number of iterations is calculated for multitask training. [max | min | avg ]")
         # additional parameters
         parser.add_argument("--epoch", type=str, default="latest", help="which epoch to load? set to latest to use latest cached model")
@@ -139,7 +142,16 @@ class BaseOptions:
         opt.isTrain = self.isTrain  # train or test
         if opt.dataroot is None and not getattr(opt, 'dataroot_general', None):
             self.parser.error('--dataroot is required when --dataroot_general is not provided.')
-        opt.tasks = self.resolve_tasks(opt.tasks, opt.pretrained_dir, opt.finetune_lora)
+
+        # Derive pretrained_dir and hyperparams path from pretrained_name
+        if getattr(opt, 'pretrained_name', None):
+            opt.pretrained_dir = str(Path(opt.checkpoints_dir) / opt.pretrained_name)
+            pretrained_hyperparams = Path(opt.checkpoints_dir).parent / "results" / opt.pretrained_name / "details" / "hyperparams.json"
+        else:
+            opt.pretrained_dir = None
+            pretrained_hyperparams = None
+
+        opt.tasks = self.resolve_tasks(opt.tasks, opt.pretrained_dir, opt.finetune_lora, pretrained_hyperparams)
         opt.max_dataset_size_by_task_map = self.parse_max_dataset_size_by_task(opt.max_dataset_size_by_task)
 
         # process opt.suffix
@@ -152,7 +164,7 @@ class BaseOptions:
         return self.opt
 
     @staticmethod
-    def resolve_tasks(tasks, pretrained_dir, finetune_lora=None):
+    def resolve_tasks(tasks, pretrained_dir, finetune_lora=None, pretrained_hyperparams=None):
         """Resolve task list, optionally loading it from pretrained run metadata."""
         if tasks:
             resolved_tasks = list(tasks)
@@ -165,7 +177,10 @@ class BaseOptions:
             return tasks
 
         pretrained_path = Path(pretrained_dir)
-        candidate_files = [
+        candidate_files = []
+        if pretrained_hyperparams is not None:
+            candidate_files.append(Path(pretrained_hyperparams))
+        candidate_files += [
             pretrained_path / "hyperparams.json",
             pretrained_path / "details" / "hyperparams.json",
         ]
