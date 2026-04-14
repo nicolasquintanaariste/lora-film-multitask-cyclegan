@@ -59,7 +59,6 @@ The framework supports **multitask learning**, allowing a single model to handle
 - Built-in evaluation metrics
 
 🔄 **Flexibility**
-- Support for paired (pix2pix) and unpaired (CycleGAN) datasets
 - Customizable network architectures
 - Task-specific model branching
 - Resume/continue training capabilities
@@ -115,46 +114,95 @@ pip install -r requirements.txt
 ### 1️⃣ Basic CycleGAN Training
 
 ```bash
-cd Dissertation/pytorch-CycleGAN-and-pix2pix-film-lora
-
-# Train on Horse-to-Zebra dataset
-python train.py \
-    --dataroot ./datasets/horse2zebra \
+# Train on a single task
+python models/STT/train.py \
+    --dataroot_general ./data \
+    --tasks horse2zebra \
     --name horse2zebra_cyclegan \
     --model cycle_gan \
     --batch_size 4 \
     --n_epochs 200
 ```
 
-### 2️⃣ Train with FiLM Conditioning
+### 2️⃣ Multitask Training with FiLM Conditioning
 
 ```bash
-python train.py \
-    --dataroot ./datasets/horse2zebra \
-    --name horse2zebra_film \
-    --model cycle_gan \
+python models/FiLM-MTT/train-per-batch.py \
+    --dataroot_general ./data \
+    --tasks horse2zebra day2night summer2winter_yosemite \
+    --name multitask_film \
     --netG resnet_9blocks_film \
-    --batch_size 4
+    --netD basic_film \
+    --n_epochs 100 \
+    --n_epochs_decay 100
 ```
 
-### 3️⃣ Multitask Learning
+### 3️⃣ Multitask Training with LoRA
 
 ```bash
-python train.py \
-    --dataroot ./datasets/multitask \
-    --name multitask_model \
-    --model cycle_gan \
-    --netG resnet_9blocks_film \
-    --tasks horse2zebra,photo2painting
+python models/LoRA-MTT/train-per-batch.py \
+    --dataroot_general ./data \
+    --tasks horse2zebra day2night summer2winter_yosemite \
+    --name multitask_lora \
+    --netG resnet_9blocks_lora \
+    --netD basic_film \
+    --use_lora \
+    --lora_rank 4 \
+    --n_epochs 100 \
+    --n_epochs_decay 100
 ```
 
-### 4️⃣ Test/Inference
+### 4️⃣ Fine-tune LoRA on a New Task
 
 ```bash
-python test.py \
-    --dataroot ./datasets/horse2zebra/testA \
-    --name horse2zebra_cyclegan \
-    --model test
+python models/FT-LoRA-MTT/train-per-batch.py \
+    --dataroot_general ./data \
+    --name my_finetuned_model \
+    --netG resnet_9blocks_lora \
+    --netD basic_film \
+    --use_lora \
+    --lora_rank 4 \
+    --pretrained_name my_pretrained_lora_model \
+    --finetune_lora new_task \
+    --n_epochs 50 \
+    --n_epochs_decay 0
+```
+> `--tasks` can be omitted — it is auto-loaded from `results/{pretrained_name}/details/hyperparams.json`.
+
+### 5️⃣ Inference
+
+`infer.py` reads the architecture and weights directly from a checkpoint folder — no options file needed.
+
+**Required folder structure for input images:**
+```
+input_images/        # folder you pass to --input
+├── img001.jpg
+├── img002.png
+└── ...
+```
+Output is written automatically to `results/{checkpoint_name}/` (or a custom path via `--out`).
+
+```bash
+# Translate A -> B for a specific task
+python models/LoRA-MTT/infer.py \
+    --input path/to/input_images \
+    --checkpoint checkpoints/my_model \
+    --task horse2zebra
+
+# Translate B -> A
+python models/LoRA-MTT/infer.py \
+    --input path/to/input_images \
+    --checkpoint checkpoints/my_model \
+    --task horse2zebra \
+    --direction BtoA
+
+# Use a specific epoch and custom output folder
+python models/LoRA-MTT/infer.py \
+    --input path/to/input_images \
+    --checkpoint checkpoints/my_model \
+    --task horse2zebra \
+    --epoch 50 \
+    --out results/my_run
 ```
 
 ---
@@ -163,93 +211,45 @@ python test.py \
 
 ```
 lora-film-multitask-cyclegan/
-├── Dissertation/                           # Main research implementations
-│   ├── pytorch-CycleGAN-and-pix2pix/       # Baseline CycleGAN
-│   ├── pytorch-CycleGAN-and-pix2pix-film/  # FiLM integration
-│   ├── pytorch-CycleGAN-and-pix2pix-lora/  # LoRA adaptation
-│   ├── pytorch-CycleGAN-and-pix2pix-film-lora/  # LoRA + FiLM 🌟
-│   ├── CycleGAN_ResNet/                    # ResNet architecture variants
-│   ├── CycleGAN_ResNet_FiLM/               # ResNet + FiLM
-│   ├── CycleGAN_Unet/                      # U-Net architecture variants
-│   ├── CycleGAN_Unet_FiLM/                 # U-Net + FiLM
-│   ├── CycleGAN_Unet_FiLM_Hinge/           # U-Net + FiLM + Hinge Loss
-│   ├── CycleGAN_erik_linder/               # Original referenced implementation
-│   ├── data/                               # Dataset storage
-│   ├── generate_samples/                   # Sample generation scripts
-│   └── checkpoints/                        # Saved model weights
-│       ├── horse2zebra_020326/
-│       ├── horse2zebra_040326/
+├── models/                        # All model implementations
+│   ├── STT/                       # Single-Task Training (baseline CycleGAN)
+│   ├── FiLM-MTT/                  # Multitask with FiLM conditioning
+│   ├── LoRA-MTT/                  # Multitask with LoRA adapters
+│   ├── FT-LoRA-MTT/               # Fine-tune a new LoRA task on a pretrained LoRA-MTT
+│   └── data/                      # Shared dataset storage
+│       ├── horse2zebra/
+│       ├── day2night/
+│       ├── summer2winter_yosemite/
 │       └── ...
-├── checkpoints/                            # Top-level model checkpoints
-├── test/                                   # Testing utilities & results
-├── wandb/                                  # W&B experiment logs
-└── README.md                               # This file
+├── checkpoints/                   # Saved model weights (shared across models)
+│   └── {experiment_name}/
+│       ├── latest_net_G_A.pth
+│       ├── latest_net_G_B.pth
+│       ├── latest_net_D_A.pth
+│       └── latest_net_D_B.pth
+├── results/                       # Training results and logs (shared across models)
+│   └── {experiment_name}/
+│       ├── details/
+│       │   ├── hyperparams.json   # Full options snapshot (used by FT-LoRA-MTT)
+│       │   └── run_summary.json
+│       ├── images/                # Sample translated images
+│       ├── loss_log.csv
+│       └── fid_kid.csv
+├── datasets/                      # Raw downloaded datasets (before preprocessing)
+├── download_datasets.sh           # Dataset download helper
+├── main.ipynb                     # Main experiment notebook
+└── README.md                      # This file
 ```
 
 ### Key Directories Explained
 
 | Directory | Purpose |
 |-----------|---------|
-| `Dissertation/` | Multiple architecture implementations for comparison |
-| `checkpoints/` | Pre-trained models and training checkpoints |
-| `data/` | Image datasets (horses, zebras, photos, paintings, etc.) |
-| `wandb/` | Experiment tracking logs and metrics |
-| `test/` | Test sets and inference results |
-
----
-
-## Models & Architectures
-
-### 1️⃣ CycleGAN (Baseline)
-Standard unpaired image-to-image translation with dual generators and discriminators.
-
-**Configuration:**
-```bash
---model cycle_gan --netG resnet_9blocks --netD basic
-```
-
-### 2️⃣ CycleGAN + FiLM
-Adds FiLM layers for task-specific instance normalization.
-
-**Configuration:**
-```bash
---netG resnet_9blocks_film
-```
-
-**Benefits:**
-- Task-aware feature modulation
-- Improved multitask learning
-- Fewer parameters than full fine-tuning
-
-### 3️⃣ CycleGAN + LoRA
-Low-rank adaptation of generator weights for efficient fine-tuning.
-
-**Configuration:**
-```bash
---lora_rank 8 --lora_alpha 16
-```
-
-**Benefits:**
-- 90%+ parameter reduction
-- Fast adaptation to new tasks
-- Memory-efficient training
-
-### 4️⃣ CycleGAN + LoRA + FiLM (Recommended) ⭐
-Combines both techniques for maximum efficiency and performance.
-
-**Configuration:**
-```bash
---netG resnet_9blocks_film --lora_rank 8 --use_lora
-```
-
-### Architecture Variants
-
-| Variant | Generator | Discriminator | Best For |
-|---------|-----------|---------------|---------  |
-| ResNet | ResNet blocks | PatchGAN | General purpose |
-| U-Net | U-Net encoder-decoder | PatchGAN | Detailed features |
-| Hybrid | ResNet + FiLM | PatchGAN | Conditional generation |
-| Lightweight | ResNet + LoRA | PatchGAN | Resource-constrained |
+| `models/` | All four model variants with their own train/test/infer scripts |
+| `models/data/` | Preprocessed datasets used during training |
+| `checkpoints/` | Saved `.pth` weight files, shared by all model variants |
+| `results/` | Loss logs, FID/KID scores, sample images, and `hyperparams.json` |
+| `datasets/` | Raw downloaded data (populated by `download_datasets.sh`) |
 
 ---
 
@@ -257,264 +257,238 @@ Combines both techniques for maximum efficiency and performance.
 
 ### Structure
 
-Datasets should be organized in one of two formats:
+Each task dataset lives under `models/data/` and must follow the unpaired CycleGAN layout:
 
-#### Unpaired Format (CycleGAN)
 ```
-datasets/horse2zebra/
-├── trainA/          # Domain A training images
-├── trainB/          # Domain B training images
-├── testA/           # Domain A test images
-└── testB/           # Domain B test images
+models/data/
+├── horse2zebra/
+│   ├── train/
+│   │   ├── A/       # Domain A training images
+│   │   └── B/       # Domain B training images
+│   └── test/
+│       ├── A/       # Domain A test images
+│       └── B/       # Domain B test images
+├── day2night/
+│   └── ...
+└── summer2winter_yosemite/
+    └── ...
 ```
 
-#### Paired Format (pix2pix)
-```
-datasets/facades/
-├── train/           # Paired images {A,B}
-└── test/            # Paired test images {A,B}
-```
+The `--dataroot_general` argument points to the `models/data/` root; each task name is then resolved as a subfolder automatically.
 
 ### Download Datasets
 
-Use the provided script:
+From the repo root, run:
 
 ```bash
-cd Dissertation/pytorch-CycleGAN-and-pix2pix-film-lora
-python ./util/get_data.py --dataset_name horse2zebra
+# Linux / macOS / WSL
+bash download_datasets.sh
+
+# Windows (WSL)
+wsl bash download_datasets.sh
 ```
 
-**Available Datasets:**
-- `horse2zebra`: 🐴 ↔ 🦓
-- `photo2painting`: 📸 ↔ 🎨
-- `cityscapes`: 🌆 (Street scenes)
-- `coco`: Various scenes
-- `facades`: 🏢 (Architectural)
-- `sat2map`: 🛰️ (Satellite to map)
+The script uses `gdown` to fetch the Google Drive folder and copies only missing files into `models/data/`, leaving existing data untouched.
+
+**Included datasets:**
+- `horse2zebra`
+- `day2night`
+- `summer2winter_yosemite`
+- `monet2photo`
 
 ### Custom Datasets
 
-1. Organize images into `trainA`, `trainB`, `testA`, `testB` directories
-2. Specify dataset path:
-```bash
---dataroot /path/to/your/dataset --dataset_mode unaligned
-```
+1. Create `models/data/{task_name}/train/A`, `train/B`, `test/A`, `test/B`
+2. Pass the task name in `--tasks` and point `--dataroot_general` at `models/data/`
 
 ---
 
 ## Training
 
-### Basic Training Command
-
-```bash
-python train.py \
-    --dataroot ./datasets/horse2zebra \
-    --name horse2zebra_exp1 \
-    --model cycle_gan \
-    --batch_size 4 \
-    --n_epochs 200 \
-    --lr 0.0002 \
-    --lambda_A 10 \
-    --lambda_B 10
-```
-
 ### Important Hyperparameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
+| `--dataroot_general` | — | Root data folder (e.g. `./models/data`) |
+| `--tasks` | — | Space-separated task names (e.g. `horse2zebra day2night`) |
 | `--batch_size` | 1 | Batch size for training |
-| `--n_epochs` | 200 | Number of training epochs |
+| `--n_epochs` | 100 | Epochs at constant learning rate |
+| `--n_epochs_decay` | 100 | Epochs to linearly decay LR to zero |
 | `--lr` | 0.0002 | Initial learning rate |
 | `--lambda_A` / `--lambda_B` | 10 | Cycle consistency weights |
 | `--lambda_identity` | 0.5 | Identity loss weight |
-| `--pool_size` | 50 | Image buffer size for discriminators |
-| `--load_size` | 286 | Load image to this size |
-| `--crop_size` | 256 | Crop image to this size |
-| `--continue_train` | - | Resume from checkpoint |
+| `--lora_rank` | 4 | LoRA adapter rank (LoRA-MTT / FT-LoRA-MTT only) |
+| `--pretrained_name` | — | Pretrained model name for FT-LoRA-MTT |
+| `--finetune_lora` | — | New task to fine-tune (FT-LoRA-MTT only) |
+| `--load_size` | 286 | Resize images to this size before crop |
+| `--crop_size` | 256 | Crop images to this size |
+| `--continue_train` | — | Resume training from latest checkpoint |
 
-### Advanced Training
+### Resume Training
 
-#### Enable Continuing Training
 ```bash
-python train.py \
-    --dataroot ./datasets/horse2zebra \
-    --name horse2zebra_exp1 \
+python models/LoRA-MTT/train-per-batch.py \
+    --dataroot_general ./models/data \
+    --tasks horse2zebra day2night summer2winter_yosemite \
+    --name my_experiment \
+    --netG resnet_9blocks_lora \
+    --netD basic_film \
+    --use_lora \
     --continue_train \
-    --epoch_count 101
+    --epoch_count 51
 ```
 
-#### Distributed Training (Multi-GPU)
+### Log to Weights & Biases
+
 ```bash
-python -m torch.distributed.launch \
-    --nproc_per_node=4 train.py \
-    --dataroot ./datasets/horse2zebra \
-    --name horse2zebra_distributed
+python models/LoRA-MTT/train-per-batch.py \
+    --dataroot_general ./models/data \
+    --tasks horse2zebra day2night \
+    --name my_experiment \
+    --netG resnet_9blocks_lora \
+    --netD basic_film \
+    --use_lora \
+    --use_wandb --wandb_project_name my_project
 ```
 
-#### Log to Weights & Biases
-```bash
-python train.py \
-    --dataroot ./datasets/horse2zebra \
-    --name horse2zebra_wandb \
-    --use_wandb --wandb_project_name cyclegan_experiments
-```
+### Training Outputs
 
-### Monitoring Training
+After training, outputs are written to two shared locations:
 
-Training outputs are saved to:
 ```
 checkpoints/{experiment_name}/
-├── web/                              # Visualizations (HTML)
-├── latest_net_G_A.pth               # Generator A weights
-├── latest_net_D_A.pth               # Discriminator A weights
-├── loss_log.txt                     # Training losses
-└── train_opt.txt                    # Training configuration
-```
+├── latest_net_G_A.pth
+├── latest_net_G_B.pth
+├── latest_net_D_A.pth
+├── latest_net_D_B.pth
+└── {epoch}_net_*.pth      # Periodic saves
 
-View loss plots:
-```bash
-python util/plot_losses.py checkpoints/horse2zebra_exp1/loss_log.txt
+results/{experiment_name}/
+├── details/
+│   ├── hyperparams.json   # Full options snapshot
+│   └── run_summary.json
+├── images/                # Sample translated images
+├── loss_log.csv
+├── loss_plot.png
+├── fid_kid.csv
+└── fid.png
 ```
 
 ---
 
 ## Testing & Inference
 
-### Generate Results
+All model variants include `infer.py`, which reconstructs the architecture automatically from `hyperparams.json` inside the checkpoint folder — no need to pass architecture flags manually.
+
+### Basic Inference (AtoB)
 
 ```bash
-python test.py \
-    --dataroot ./datasets/horse2zebra/testA \
-    --name horse2zebra_exp1 \
-    --model test \
-    --phase test
+python models/LoRA-MTT/infer.py \
+    --input path/to/images \
+    --checkpoint checkpoints/my_experiment \
+    --task horse2zebra
 ```
 
-Results saved to:
-```
-results/{experiment_name}/images/
-```
-
-### Use Pretrained Models
+### Inference (BtoA)
 
 ```bash
-python test.py \
-    --dataroot ./datasets/horse2zebra/testA \
-    --name horse2zebra_pretrained \
-    --model test \
-    --checkpoints_dir ./checkpoints/horse2zebra_040326
+python models/LoRA-MTT/infer.py \
+    --input path/to/images \
+    --checkpoint checkpoints/my_experiment \
+    --task horse2zebra \
+    --direction BtoA
 ```
 
-### Custom Image Translation
-
-```python
-import torch
-from models import create_model
-from util.image_pool import ImagePool
-
-# Load trained model
-model = create_model(opt)
-model.load_networks('latest')
-model.eval()
-
-# Translate image
-with torch.no_grad():
-    model.set_input({'A': image_tensor})
-    model.forward()
-    output = model.fake_B
-```
-
-### Batch Processing
+### Specific Epoch & Custom Output
 
 ```bash
-python test.py \
-    --dataroot ./custom_images \
-    --name my_model \
-    --phase test \
-    --num_test 1000
+python models/LoRA-MTT/infer.py \
+    --input path/to/images \
+    --checkpoint checkpoints/my_experiment \
+    --task horse2zebra \
+    --epoch 50 \
+    --out results/my_run
 ```
+
+> Use `models/FT-LoRA-MTT/infer.py` for fine-tuned models.
+
+Output images are saved to `results/{checkpoint_name}/` by default (one output image per input).
 
 ---
 
 ## Configuration
 
-### Training Options (`options/train_options.py`)
-
-```python
-parser.add_argument('--n_epochs', type=int, default=100)
-parser.add_argument('--lr_decay_iters', type=int, default=50)
-parser.add_argument('--lambda_A', type=float, default=10.0)
-parser.add_argument('--lambda_identity', type=float, default=0.5)
-parser.add_argument('--gan_mode', type=str, default='lsgan')
-parser.add_argument('--norm', type=str, default='instance')
-parser.add_argument('--init_type', type=str, default='normal')
-parser.add_argument('--init_gain', type=float, default=0.02)
-```
-
 ### Model Selection
 
-By **generator type**:
-```bash
---netG resnet_9blocks      # 9-block ResNet
---netG resnet_6blocks      # 6-block ResNet
---netG unet_256            # U-Net (256x256)
---netG unet_128            # U-Net (128x128)
---netG resnet_9blocks_film # ResNet + FiLM
-```
-
-By **discriminator type**:
-```bash
---netD basic               # Standard PatchGAN
---netD n_layers            # Multi-scale PatchGAN
---netD pixel               # Pixel-level discriminator
-```
+| Model | `--netG` | `--netD` | Use with |
+|-------|----------|----------|----------|
+| STT (baseline) | `resnet_9blocks` | `basic` | `STT/train.py` |
+| FiLM-MTT | `resnet_9blocks_film` | `basic_film` | `FiLM-MTT/train-per-batch.py` |
+| LoRA-MTT | `resnet_9blocks_lora` | `basic_film` | `LoRA-MTT/train-per-batch.py` |
+| FT-LoRA-MTT | `resnet_9blocks_lora` | `basic_film` | `FT-LoRA-MTT/train-per-batch.py` |
 
 ### Loss Functions
 
 ```bash
---gan_mode vanilla         # Standard GAN loss
---gan_mode lsgan          # Least-square GAN
---gan_mode wgangp         # Wasserstein GAN with gradient penalty
---gan_mode hinge          # Hinge loss
+--gan_mode lsgan     # Least-square GAN (default)
+--gan_mode vanilla   # Standard cross-entropy GAN
+--gan_mode wgangp    # Wasserstein GAN with gradient penalty
+--gan_mode hinge     # Hinge loss
 ```
+
+### Key Defaults (all models)
+
+| Parameter | Default |
+|-----------|---------|
+| `--lr` | `0.0002` |
+| `--beta1` | `0.5` |
+| `--lambda_A` / `--lambda_B` | `10.0` |
+| `--lambda_identity` | `0.5` |
+| `--pool_size` | `50` |
+| `--norm` | `instance` |
+| `--load_size` | `286` |
+| `--crop_size` | `256` |
 
 ---
 
 ## Results & Checkpoints
 
-### Pre-trained Models
+Checkpoints and results are stored at the repo root and shared across all model variants:
 
-Available checkpoints in `checkpoints/`:
+```
+checkpoints/{experiment_name}/
+├── latest_net_G_A.pth
+├── latest_net_G_B.pth
+├── latest_net_D_A.pth
+├── latest_net_D_B.pth
+└── {epoch}_net_*.pth       # E.g. 10_net_G_A.pth
 
-| Model | Date | Dataset | Accuracy | Size |
-|-------|------|---------|----------|------|
-| `horse2zebra_020326` | 2026-03-02 | horse2zebra | - | ~200MB |
-| `horse2zebra_040326` | 2026-03-04 | horse2zebra | - | ~200MB |
+results/{experiment_name}/
+├── details/
+│   ├── hyperparams.json    # Recreate architecture / used by FT-LoRA-MTT
+│   └── run_summary.json
+├── images/                 # Sample translated images
+├── loss_log.csv
+├── loss_plot.png
+├── fid_kid.csv
+└── fid.png
+```
 
-### Loading Checkpoints
+### Run Inference from a Checkpoint
 
 ```bash
-# Use specific epoch
-python test.py \
-    --name horse2zebra_040326 \
-    --epoch 15 \
-    --load_iter 0
-```
+# Latest weights
+python models/LoRA-MTT/infer.py \
+    --input path/to/images \
+    --checkpoint checkpoints/my_experiment \
+    --task horse2zebra
 
-### Checkpoint Structure
-
-```
-checkpoints/experiment_name/
-├── 5_net_G_A.pth          # Generator A at epoch 5
-├── 5_net_D_A.pth          # Discriminator A at epoch 5
-├── latest_net_G_A.pth     # Latest weights
-├── latest_net_D_A.pth
-├── latest_net_G_B.pth
-├── latest_net_D_B.pth
-├── train_opt.txt          # Training configuration
-├── loss_log.txt           # Training metrics
-└── web/                   # HTML visualizations
-    └── index.html
+# Specific epoch
+python models/LoRA-MTT/infer.py \
+    --input path/to/images \
+    --checkpoint checkpoints/my_experiment \
+    --task horse2zebra \
+    --epoch 10
 ```
 
 ---
@@ -550,7 +524,6 @@ checkpoints/experiment_name/
 ### Related Work
 
 - [Original CycleGAN Repository](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
-- [pix2pix: Image-to-Image Translation with Conditional Adversarial Nets](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
 - [FiLM: Visual Reasoning with a General Conditioning Layer](https://arxiv.org/abs/1709.07871)
 
 ---
@@ -579,29 +552,9 @@ checkpoints/experiment_name/
 
 ---
 
-## Contributing
-
-Contributions welcome! Areas for improvement:
-- [ ] Additional model architectures
-- [ ] Performance optimizations
-- [ ] Extended documentation
-- [ ] Example notebooks
-- [ ] Unit tests
-
----
-
 ## License
 
 [Specify your license here - e.g., MIT, Apache 2.0]
-
----
-
-## Contact & Support
-
-For questions, issues, or feedback:
-- 📧 Email: [your.email@university.edu]
-- 🐛 Issues: [GitHub Issues]
-- 💬 Discussions: [GitHub Discussions]
 
 ---
 
@@ -609,12 +562,10 @@ For questions, issues, or feedback:
 
 Built upon:
 - [PyTorch CycleGAN and pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix) by Junyanz Zhou
-- Erik Linder's CycleGAN implementation
 - FiLM conditioning mechanism
 - LoRA adaptation techniques
 
 ---
 
 **Last Updated:** April 2026  
-**Status:** Active Development 🚀
 

@@ -82,11 +82,5 @@ test/data/legacy_serialized.pt
 #Ignore Wandb
 wandb/
 
-# Ignore repositories
-*/StarGAN
-*/stargan-v2
-
 # Pretrained
 */pretrained/*
-
-Dissertation_weird_copy
