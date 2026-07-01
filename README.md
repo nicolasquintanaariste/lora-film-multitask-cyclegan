@@ -65,9 +65,9 @@ The following qualitative examples compare the outputs produced by the baseline 
 ### Row Legend
 
 - **Original** – Input images
-- **STT** – Standard Single-Task CycleGAN baseline
-- **FiLM-MTT** – Proposed multitask CycleGAN conditioned using FiLM
-- **LoRA-MTT** – Proposed multitask CycleGAN conditioned using LoRA
+- **STT** – Standard Single-Task CycleGAN baseline (Trained for 1 task)
+- **FiLM-MTT** – Proposed multitask CycleGAN conditioned using FiLM (Trained for 5 tasks)
+- **LoRA-MTT** – Proposed multitask CycleGAN conditioned using LoRA (Trained for 5 tasks)
 
 ---
 
