@@ -1,4 +1,4 @@
-# LoRA Film Multitask CycleGAN 🎨
+# LoRA Film Multitask CycleGAN
 
 A powerful framework for image-to-image translation combining **CycleGAN**, **Low-Rank Adaptation (LoRA)**, and **FiLM (Feature-wise Linear Modulation)** for efficient multitask learning. This repository explores advanced techniques for domain adaptation and style transfer with minimal parameter overhead.
 
@@ -32,10 +32,10 @@ This repository implements state-of-the-art image translation techniques combini
 The framework supports **multitask learning**, allowing a single model to handle multiple translation tasks simultaneously with task-specific adaptation.
 
 ### Use Cases
-- 🐴 Domain adaptation (e.g., horse ↔ zebra translation)
-- 🎨 Style transfer across multiple domains
-- 🖼️ Artistic style applications
-- 📸 Photo-realistic image synthesis
+- Domain adaptation (e.g., horse ↔ zebra translation)
+- Style transfer across multiple domains
+- Artistic style applications
+- Photo-realistic image synthesis
 
 ---
 
