@@ -11,7 +11,6 @@ A powerful framework for image-to-image translation combining **CycleGAN**, **Lo
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
-- [Models & Architectures](#models--architectures)
 - [Dataset Setup](#dataset-setup)
 - [Training](#training)
 - [Testing & Inference](#testing--inference)
