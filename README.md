@@ -556,7 +556,11 @@ python models/LoRA-MTT/infer.py \
 
 ## License
 
-[Specify your license here - e.g., MIT, Apache 2.0]
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+**Copyright © 2026 Nicolás Quintana Ariste**
+
+You are free to use, modify, and distribute this software under the terms of the MIT License.
 
 ---
 
