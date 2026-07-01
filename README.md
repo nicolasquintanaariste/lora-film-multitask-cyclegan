@@ -81,7 +81,7 @@ The following qualitative examples compare the outputs produced by the baseline 
 
 **Original**
 
-<br><br><br><br><br>
+<br><br><br>
 
 **STT**
 
@@ -89,7 +89,7 @@ The following qualitative examples compare the outputs produced by the baseline 
 
 **FiLM-MTT**
 
-<br><br><br><br><br>
+<br><br>
 
 **LoRA-MTT**
 
@@ -98,7 +98,6 @@ The following qualitative examples compare the outputs produced by the baseline 
 <td>
 
 <img src="images/cheetah2leopard_backward_comparison.png" width="950">
-![alt text](image.png)
 </td>
 </tr>
 </table>
@@ -115,7 +114,7 @@ The following qualitative examples compare the outputs produced by the baseline 
 
 **Original**
 
-<br><br><br><br><br>
+<br><br><br>
 
 **STT**
 
@@ -123,7 +122,7 @@ The following qualitative examples compare the outputs produced by the baseline 
 
 **FiLM-MTT**
 
-<br><br><br><br><br>
+<br><br>
 
 **LoRA-MTT**
 
@@ -149,7 +148,7 @@ The following qualitative examples compare the outputs produced by the baseline 
 
 **Original**
 
-<br><br><br><br><br>
+<br><br><br>
 
 **STT**
 
@@ -157,7 +156,7 @@ The following qualitative examples compare the outputs produced by the baseline 
 
 **FiLM-MTT**
 
-<br><br><br><br><br>
+<br><br>
 
 **LoRA-MTT**
 
