@@ -60,7 +60,7 @@ Overall, the proposed FiLM and LoRA conditioning mechanisms successfully enable 
 
 ## Sample Results
 
-The following qualitative examples compare the outputs produced by the baseline Single-Task CycleGAN (STT) against the proposed FiLM-MTT and LoRA-MTT architectures. Each row corresponds to a different model, while each column shows a different input sample from the same image translation task.
+The following qualitative examples compare the outputs produced by the baseline Single-Task CycleGAN (STT) against the proposed FiLM-MTT and LoRA-MTT architectures. Each row corresponds to a different model, while each column shows a different input sample from the same image translation task. Note that each multitask model was trained simultaneously on five different translation tasks. Overall, both FiLM-MTT and LoRA-MTT achieved performance comparable to the baseline while reducing the number of task-specific parameters by 74% and 60%, respectively.
 
 ### Row Legend
 
