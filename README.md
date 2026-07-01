@@ -22,19 +22,154 @@ A powerful framework for image-to-image translation combining **CycleGAN**, **Lo
 
 ## Overview
 
-This repository implements state-of-the-art image translation techniques combining:
+This repository contains the complete implementation accompanying my master's dissertation, **"Conditioning CycleGANs for Multitask Training: Exploring Parameter-Efficient Unpaired Image-to-Image Translation with FiLM and LoRA."**
 
-- **CycleGAN**: Unpaired image-to-image translation without paired training data
-- **LoRA (Low-Rank Adaptation)**: Parameter-efficient fine-tuning using low-rank decomposition
-- **FiLM (Feature-wise Linear Modulation)**: Adaptive instance normalization for conditional image generation
+Image-to-image translation is the task of transforming an input image from one visual domain into another while preserving the underlying content. For example, a horse image can be converted to look like a zebra while keeping the overall structure and pose of the original scene. 
 
-The framework supports **multitask learning**, allowing a single model to handle multiple translation tasks simultaneously with task-specific adaptation.
+<div align="center">
+  <img src="images/horse2zebra.gif" width="384" />
+</div>
+
+The research performed as part of my Master´s Dissertation explores the use of conditioning mechasnisms so that a single model can be trained to perform several unique tasks. For instance, instead of creating a new model for horse-to-zebra and day-to-night transations, you could train both models together as one, reducing parameter costs and leveraging learning from the other task.
+
+In other words, the project investigates whether a **single CycleGAN** can learn multiple unpaired image-to-image translation tasks simultaneously through lightweight task-conditioning mechanisms, eliminating the need to train an independent model for every task.
+
+Unlike conventional CycleGAN training, this work introduces and evaluates two novel multitask conditioning strategies based on:
+
+- **FiLM (Feature-wise Linear Modulation)**
+- **LoRA (Low-Rank Adaptation)**
+
+Both approaches enable a shared CycleGAN backbone to perform multiple image-to-image translation tasks while introducing only a small number of task-specific parameters, making multitask learning significantly more parameter-efficient.
+
+The repository contains four complete implementations:
+
+| Model | Description |
+|-------|-------------|
+| **STT** | Standard Single-Task CycleGAN baseline |
+| **FiLM-MTT** | Multitask CycleGAN conditioned using FiLM |
+| **LoRA-MTT** | Multitask CycleGAN conditioned using LoRA adapters |
+| **FT-LoRA-MTT** | Few-shot fine-tuning of pretrained LoRA multitask models onto new translation tasks |
+
+Overall, the proposed FiLM and LoRA conditioning mechanisms successfully enable multitask CycleGAN training, offering a parameter reduction of 60% and 74% respectively while maintaining baseline model performance. Both approaches perform particularly well on translations dominated by **colour and texture changes**, with LoRA producing slightly sharper visual results. However, neither architecture consistently outperforms independently trained CycleGANs on tasks requiring substantial geometric transformations, such as Cat ↔ Dog. Additionally, the repository includes experiments on few-shot LoRA adaptation, exploring the potential for rapidly extending pretrained multitask models to unseen domains.
 
 ### Use Cases
 - Domain adaptation (e.g., horse ↔ zebra translation)
 - Style transfer across multiple domains
 - Artistic style applications
 - Photo-realistic image synthesis
+
+## Sample Results
+
+The following qualitative examples compare the outputs produced by the baseline Single-Task CycleGAN (STT) against the proposed FiLM-MTT and LoRA-MTT architectures. Each row corresponds to a different model, while each column shows a different input sample from the same image translation task.
+
+### Row Legend
+
+- **Original** – Input images
+- **STT** – Standard Single-Task CycleGAN baseline
+- **FiLM-MTT** – Proposed multitask CycleGAN conditioned using FiLM
+- **LoRA-MTT** – Proposed multitask CycleGAN conditioned using LoRA
+
+---
+
+### Leopard → Cheetah
+
+<table>
+<tr>
+<td width="100" align="right" valign="top">
+
+<br><br>
+
+**Original**
+
+<br><br><br><br><br>
+
+**STT**
+
+<br><br><br><br>
+
+**FiLM-MTT**
+
+<br><br><br><br><br>
+
+**LoRA-MTT**
+
+</td>
+
+<td>
+
+<img src="images/cheetah2leopard_backward_comparison.png" width="950">
+![alt text](image.png)
+</td>
+</tr>
+</table>
+
+---
+
+### Night → Day
+
+<table>
+<tr>
+<td width="100" align="right" valign="top">
+
+<br><br>
+
+**Original**
+
+<br><br><br><br><br>
+
+**STT**
+
+<br><br><br><br>
+
+**FiLM-MTT**
+
+<br><br><br><br><br>
+
+**LoRA-MTT**
+
+</td>
+
+<td>
+
+<img src="images/day2night_backward_comparison.png" width="950">
+
+</td>
+</tr>
+</table>
+
+---
+
+### Tiger → Lion
+
+<table>
+<tr>
+<td width="100" align="right" valign="top">
+
+<br><br>
+
+**Original**
+
+<br><br><br><br><br>
+
+**STT**
+
+<br><br><br><br>
+
+**FiLM-MTT**
+
+<br><br><br><br><br>
+
+**LoRA-MTT**
+
+</td>
+
+<td>
+
+<img src="images/tiger2lion_forward_comparison.png" width="950">
+
+</td>
+</tr>
+</table>
 
 ---
 
